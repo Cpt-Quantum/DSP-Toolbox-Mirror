@@ -22,64 +22,76 @@ void gen_freq(float *f, uint32_t length, uint32_t sample_freq)
 }
 
 /* Real valued function variants */
-void add_sin(float *x, float *y, uint32_t length, uint32_t frequency,
-				float amplitude, float offset, float phase)
+void add_sin(float *x, float *y,
+				wave_properties_t wave_properties, uint32_t length)
 {
 	for (uint32_t i = 0; i < length; i++)
 	{
-		y[i] = y[i] + offset
-				+ amplitude * sin(pi2 * ((float)frequency) * x[i] + pi2 * phase);
+		y[i] = y[i] + wave_properties.offset
+				+ wave_properties.amplitude
+					* sin(pi2 * ((float)wave_properties.frequency) * x[i] 
+							+ pi2 * wave_properties.phase);
 	}
 }
 
-void add_cos(float *x, float *y, uint32_t length, uint32_t frequency,
-				float amplitude, float offset, float phase)
+void add_cos(float *x, float *y,
+				wave_properties_t wave_properties, uint32_t length)
 {
 	for (uint32_t i = 0; i < length; i++)
 	{
-		y[i] = y[i] + offset
-				+ amplitude * cos(pi2 * ((float)frequency) * x[i] + pi2 * phase);
+		y[i] = y[i] + wave_properties.offset
+				+ wave_properties.amplitude
+					* cos(pi2 * ((float)wave_properties.frequency) * x[i]
+							 + pi2 * wave_properties.phase);
 	}
 }
 
 /* Complex valued function variants */
-void add_sin_real(float *x, complex_t *y, uint32_t length, uint32_t frequency,
-					float amplitude, float offset, float phase)
+void add_sin_real(float *x, complex_t *y,
+					wave_properties_t wave_properties, uint32_t length)
 {
 	for (uint32_t i = 0; i < length; i++)
 	{
-		y[i].real = y[i].real + offset
-					+ amplitude * sin(pi2 * frequency * x[i] + pi2 * phase);
+		y[i].real = y[i].real + wave_properties.offset
+					+ wave_properties.amplitude
+					* sin(pi2 * wave_properties.frequency * x[i]
+							+ pi2 * wave_properties.phase);
 	}
 }
 
-void add_cos_real(float *x, complex_t *y, uint32_t length, uint32_t frequency,
-					float amplitude, float offset, float phase)
+void add_cos_real(float *x, complex_t *y,
+					wave_properties_t wave_properties, uint32_t length)
 {
 	for (uint32_t i = 0; i < length; i++)
 	{
-		y[i].real = y[i].real + offset
-					+ amplitude * cos(pi2 * frequency * x[i] + pi2 * phase);
+		y[i].real = y[i].real + wave_properties.offset
+					+ wave_properties.amplitude
+						* cos(pi2 * wave_properties.frequency * x[i]
+								+ pi2 * wave_properties.phase);
 	}
 }
 
-void add_sin_imag(float *x, complex_t *y, uint32_t length, uint32_t frequency,
-					float amplitude, float offset, float phase)
+void add_sin_imag(float *x, complex_t *y,
+					wave_properties_t wave_properties, uint32_t length)
 {
 	for (uint32_t i = 0; i < length; i++)
 	{
-		y[i].imag = y[i].imag + offset
-					+ amplitude * sin(pi2 * frequency * x[i] + pi2 * phase);
+		y[i].imag = y[i].imag + wave_properties.offset
+					+ wave_properties.amplitude
+						* sin(pi2 * wave_properties.frequency * x[i]
+								+ pi2 * wave_properties.phase);
 	}
 }
 
-void add_cos_imag(float *x, complex_t *y, uint32_t length, uint32_t frequency,
-					float amplitude, float offset, float phase)
+void add_cos_imag(float *x, complex_t *y,
+					wave_properties_t wave_properties, uint32_t length)
 {
 	for (uint32_t i = 0; i < length; i++)
 	{
-		y[i].imag = y[i].imag + offset
-					+ amplitude * cos(pi2 * frequency * x[i] + pi2 * phase);
+		y[i].imag = y[i].imag + wave_properties.offset
+					+ wave_properties.amplitude
+						* cos(pi2 * wave_properties.frequency * x[i]
+								+ pi2 * wave_properties.phase);
 	}
 }
 
@@ -94,18 +106,12 @@ void init_waveform(wave_settings_t wave_settings, float *t, float *x)
 		{
 			case FUNCTION_SINE:
 				add_sin(t, x,
-							wave_settings.data_length,
-							wave_settings.superposition[i].frequency,
-							wave_settings.superposition[i].amplitude,
-							wave_settings.superposition[i].offset,
-							wave_settings.superposition[i].phase);
+							wave_settings.superposition[i],
+							wave_settings.data_length);
 			case FUNCTION_COS:
 				add_cos(t, x,
-							wave_settings.data_length,
-							wave_settings.superposition[i].frequency,
-							wave_settings.superposition[i].amplitude,
-							wave_settings.superposition[i].offset,
-							wave_settings.superposition[i].phase);
+							wave_settings.superposition[i],
+							wave_settings.data_length);
 			default:
 				break;
 		}

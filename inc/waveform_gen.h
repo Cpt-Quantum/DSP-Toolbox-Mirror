@@ -59,14 +59,12 @@ void gen_freq(float *f, uint32_t length, uint32_t sample_freq);
 /* data buffer. This function is defined for use with purely real data.       */
 /* x: The x buffer storing time */
 /* y: The data buffer to add the sine/cosine wave to */
-/* length: The length of the y data buffer */
-/* frequency: The frequency of the waveform */
-/* amplitude: The amplitude of the sine/cosine wave */
-/* phase: The phase of the sine/cosine wave */
-void add_sin(float *x, float *y, uint32_t length, uint32_t frequency,
-				float amplitude, float offset, float phase);
-void add_cos(float *x, float *y, uint32_t length, uint32_t frequenct,
-				float amplitude, float offset, float phase);
+/* wave_properties: The struct containing all desired properties for the */
+/* waveform to be added. */
+void add_sin(float *x, float *y,
+				wave_properties_t wave_properties, uint32_t length);
+void add_cos(float *x, float *y,
+				wave_properties_t wave_properties, uint32_t length);
 
 /* The following functions add sine and cosine waveforms to a pre-existing    */
 /* data buffer. This function is defined for use with complex data.           */
@@ -74,18 +72,16 @@ void add_cos(float *x, float *y, uint32_t length, uint32_t frequenct,
 /* functions add the waveform to the imaginary parts.                         */
 /* x: The x buffer storing time */
 /* y: The data buffer to add the sine/cosine wave to */
-/* length: The length of the y data buffer */
-/* frequency: The frequency of the waveform */
-/* amplitude: The amplitude of the sine/cosine wave */
-/* phase: The phase of the sine/cosine wave */
-void add_sin_real(float *x, complex_t *y, uint32_t length, uint32_t frequency,
-					float amplitude, float offset, float phase);
-void add_cos_real(float *x, complex_t *y, uint32_t length, uint32_t frequenct,
-					float amplitude, float offset, float phase);
-void add_sin_imag(float *x, complex_t *y, uint32_t length, uint32_t frequency,
-					float amplitude, float offset, float phase);
-void add_cos_imag(float *x, complex_t *y, uint32_t length, uint32_t frequenct,
-					float amplitude, float offset, float phase);
+/* wave_properties: The struct containing all desired properties for the */
+/* waveform to be added. */
+void add_sin_real(float *x, complex_t *y,
+					wave_properties_t wave_properties, uint32_t length);
+void add_cos_real(float *x, complex_t *y,
+					wave_properties_t wave_properties, uint32_t length);
+void add_sin_imag(float *x, complex_t *y,
+					wave_properties_t wave_properties, uint32_t length);
+void add_cos_imag(float *x, complex_t *y,
+					wave_properties_t wave_properties, uint32_t length);
 
 /* Initialises the waveform based on the pass wave_settings */
 /* wave_settings: Struct containing all of the wave settings required for */
