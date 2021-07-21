@@ -29,7 +29,7 @@ void add_sin(float *x, float *y,
 	{
 		y[i] = y[i] + wave_properties.offset
 				+ wave_properties.amplitude
-					* sin(pi2 * ((float)wave_properties.frequency) * x[i] 
+					* sinf(pi2 * wave_properties.frequency * x[i] 
 							+ pi2 * wave_properties.phase);
 	}
 }
@@ -41,7 +41,7 @@ void add_cos(float *x, float *y,
 	{
 		y[i] = y[i] + wave_properties.offset
 				+ wave_properties.amplitude
-					* cos(pi2 * ((float)wave_properties.frequency) * x[i]
+					* cosf(pi2 * wave_properties.frequency * x[i]
 							 + pi2 * wave_properties.phase);
 	}
 }
@@ -54,7 +54,7 @@ void add_sin_real(float *x, complex_t *y,
 	{
 		y[i].real = y[i].real + wave_properties.offset
 					+ wave_properties.amplitude
-					* sin(pi2 * wave_properties.frequency * x[i]
+					* sinf(pi2 * wave_properties.frequency * x[i]
 							+ pi2 * wave_properties.phase);
 	}
 }
@@ -66,7 +66,7 @@ void add_cos_real(float *x, complex_t *y,
 	{
 		y[i].real = y[i].real + wave_properties.offset
 					+ wave_properties.amplitude
-						* cos(pi2 * wave_properties.frequency * x[i]
+						* cosf(pi2 * wave_properties.frequency * x[i]
 								+ pi2 * wave_properties.phase);
 	}
 }
@@ -78,7 +78,7 @@ void add_sin_imag(float *x, complex_t *y,
 	{
 		y[i].imag = y[i].imag + wave_properties.offset
 					+ wave_properties.amplitude
-						* sin(pi2 * wave_properties.frequency * x[i]
+						* sinf(pi2 * wave_properties.frequency * x[i]
 								+ pi2 * wave_properties.phase);
 	}
 }
@@ -90,7 +90,7 @@ void add_cos_imag(float *x, complex_t *y,
 	{
 		y[i].imag = y[i].imag + wave_properties.offset
 					+ wave_properties.amplitude
-						* cos(pi2 * wave_properties.frequency * x[i]
+						* cosf(pi2 * wave_properties.frequency * x[i]
 								+ pi2 * wave_properties.phase);
 	}
 }
@@ -108,13 +108,20 @@ void init_waveform(wave_settings_t wave_settings, float *t, float *x)
 				add_sin(t, x,
 							wave_settings.superposition[i],
 							wave_settings.data_length);
+				break;
 			case FUNCTION_COS:
 				add_cos(t, x,
 							wave_settings.superposition[i],
 							wave_settings.data_length);
+				break;
 			default:
 				break;
 		}
+	}
+	/* Add in the DC offset for the signal */
+	for (uint32_t i = 0; i < wave_settings.data_length; i++)
+	{
+		x[i] += wave_settings.dc_offset;
 	}
 }
 

@@ -32,6 +32,7 @@ typedef struct {
 /* superposition waves set by the *superposition member. */
 /* fs: Sampling frequency of the overall waveform */
 /* data_length: The length of the arrays being passed to initialise */
+/* dc_offset: Overall DC offset of the signal (e.g the signal is biased) */
 /* *superposition: Pointer to an initialised object describing the properties */
 /* of each superposition wave. */
 /* num_superpositions: Number of indiviual superposition waves in the */
@@ -39,6 +40,7 @@ typedef struct {
 typedef struct {
         const uint32_t fs;
         const uint32_t data_length;
+		const float dc_offset;
         const wave_properties_t *superposition;
         const uint8_t num_superpositions;
 } wave_settings_t;
