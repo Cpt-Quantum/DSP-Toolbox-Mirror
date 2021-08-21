@@ -27,32 +27,38 @@ float power_average(float *data_in, uint32_t data_length)
 
 float moving_average(moving_avg_t *moving_avg_buffer, float new_samp)
 {
+	float avg = 0;
 	if (moving_avg_buffer->first_cycle == true)
 	{
 		/* Add new sample to the sample buffer */
+		moving_avg_buffer->data_buff[moving_avg_buffer->head] = new_samp;
+		(moving_avg_buffer->head)++;
 
 		/* Compute the moving average and add it to the struct */
+		moving_avg_buffer->current_total += new_samp;
+		avg = moving_avg_buffer->current_total / moving_avg_buffer->head;
 
 		/* Check if the number of averages performed have reached the total */
-		if (moving_avg_buffer->avg_counter >= moving_avg_buffer->data_buff_length)
+		if (moving_avg_buffer->head >= moving_avg_buffer->data_buff_length)
 		{
-			moving_avg_buffer->first_cycle == false;
+			moving_avg_buffer->first_cycle = false;
+			moving_avg_buffer->head = 0;
 		}
 	}
 	else
 	{
 		/* Remove the oldest sample from the average total */
-		moving_avg_buffer->current_avg -= moving_avg_buffer->data_buff[moving_avg_buffer->tail];
+		moving_avg_buffer->current_total -= moving_avg_buffer->data_buff[moving_avg_buffer->tail];
 		moving_avg_buffer->tail = (moving_avg_buffer->tail + 1) % moving_avg_buffer->data_buff_length;
+		/* Add the new sample to the buffer and the total */
+		moving_avg_buffer->data_buff[moving_avg_buffer->head] = new_samp;
+		moving_avg_buffer->current_total += new_samp;
+		moving_avg_buffer->head = (moving_avg_buffer->head + 1) % moving_avg_buffer->data_buff_length;
 
 		/* Add the new sample to the current average */
-		moving_avg_buffer->current_avg += new_samp / moving_avg_buffer->data_buff_length;
-
-		/* Add the new average to the buffer */
-		moving_avg_buffer->data_buff[moving_avg_buffer->head] += new_samp;
-		moving_avg_buffer->head++;
+		avg = moving_avg_buffer->current_total / moving_avg_buffer->data_buff_length;
 	}
 
 	/* Return the average */
-	return moving_avg_buffer->current_avg;
+	return avg;
 }
