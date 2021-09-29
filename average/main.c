@@ -46,7 +46,7 @@ static const wave_properties_t wave_prop_1[] = {
 	},
 };
 #define WAVE_1_SUP_COUNT (sizeof(wave_prop_1) / sizeof(wave_prop_1[0]))
-#define WAVE_1_FS 32768
+#define WAVE_1_FS 40000
 #define WAVE_1_LENGTH (WAVE_1_FS * 2)
 static const wave_settings_t wave_sett_1 = {
 	.fs = WAVE_1_FS,
@@ -65,8 +65,8 @@ float y_1[WAVE_1_LENGTH] = {0};
 float y_2[WAVE_1_LENGTH] = {0};
 
 /* Moving average definitions for signal detrending */
-#define MOVING_AVG_CHUNK_LENGTH 64
-#define DETREND_SAMPLES (WAVE_1_FS / (8 * MOVING_AVG_CHUNK_LENGTH))
+#define MOVING_AVG_CHUNK_LENGTH 50
+#define DETREND_SAMPLES (WAVE_1_FS / (10 * MOVING_AVG_CHUNK_LENGTH))
 float dc_offset_avg_buff[DETREND_SAMPLES] = {0};
 moving_avg_t detrend_avg = {
 	.data_buff = dc_offset_avg_buff,
