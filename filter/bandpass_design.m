@@ -33,8 +33,8 @@ angle_mult = 2;
 angle_high_cut = angle_mult*bandpass_high_cut/f_s;
 angle_low_cut = angle_mult*bandpass_low_cut/f_s;
 
-[b,a] = butter(filter_order, [angle_low_cut, angle_high_cut], "bandpass");
-[sos, g] = tf2sos(b,a);
+[z, p, g] = butter(filter_order, [angle_low_cut, angle_high_cut], "bandpass");
+[sos, g] = zp2sos(z,p,g);
 
 % Create test signal
 t = 0 : 1/f_s : test_sig_period_s-1/f_s;

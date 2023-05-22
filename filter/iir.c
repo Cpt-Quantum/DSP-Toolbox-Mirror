@@ -4,49 +4,60 @@
 #include "iir.h"
 
 /* Set the coefficients for each of the second order sections */
-/* TODO: Replace these coefficient assignments with real ones */
-float sos_a[] = {1, 1, 1};
-float sos_b[] = {1, 1, 1};
-
 struct biquad_section_t biquads[] = {
 	[0] = {
-		.a = {1, -1.8141, 0.82381},
-		.b = {1, 2.0024, 1.0024},
+		.a = {1, -1.6629829, 0.69242287},
+		.b = {1, 2.0524712, 1.0532802},
 		.in_buff = {0},
 		.out_buff = {0},
 		.cycle = 0,
 	},
 	[1] = {
-		.a = {1, -1.8512, 0.8634},
-		.b = {1, 1.9976, 0.99762},
+		.a = {1, -1.7017719, 0.73286957},
+		.b = {1, 2.0211606, 1.0219609},
 		.in_buff = {0},
 		.out_buff = {0},
 		.cycle = 0,
 	},
 	[2] = {
-		.a = {1, -1.9337, 0.94801},
-		.b = {1, -1.9976, 0.99759},
+		.a = {1, -1.7792711, 0.81312108},
+		.b = {1, 1.9780388, 0.97882664},
 		.in_buff = {0},
 		.out_buff = {0},
 		.cycle = 0,
 	},
 	[3] = {
-		.a = {1, -1.9453, 0.95086},
-		.b = {1, -2.0024, 1.0024},
+		.a = {1, -1.8931551, 0.93011516},
+		.b = {1, 1.9483294, 0.94910896},
 		.in_buff = {0},
 		.out_buff = {0},
 		.cycle = 0,
 	},
 	[4] = {
-		.a = {1, -2.053, 1.0556},
-		.b = {1, 2, 1},
+		.a = {1, -1.9899222, 0.98994863},
+		.b = {1, -2.0000687, 1.0000685},
 		.in_buff = {0},
 		.out_buff = {0},
 		.cycle = 0,
 	},
 	[5] = {
-		.a = {1, -1.9673, 0.96407},
-		.b = {1, -2, 1},
+		.a = {1, -1.9917027, 0.99172837},
+		.b = {1, -2.0000279, 1.0000279},
+		.in_buff = {0},
+		.out_buff = {0},
+		.cycle = 0,
+	},
+	[6] = {
+		.a = {1, -1.9946512, 0.99467593},
+		.b = {1, -1.9999322, 0.99993217},
+
+		.in_buff = {0},
+		.out_buff = {0},
+		.cycle = 0,
+	},
+	[7] = {
+		.a = {1, -1.9981492, 0.99817336},
+		.b = {1, -1.9999714, 0.99997139},
 		.in_buff = {0},
 		.out_buff = {0},
 		.cycle = 0,
@@ -56,7 +67,7 @@ struct biquad_section_t biquads[] = {
 struct sos_filter_t sos_filt = {
 	.biquad_section = biquads,
 	.num_sections = 5,
-	.gain = 2.3050e-08,
+	.gain = 4.4173465e-09,
 };
 
 void iir_filter(float *data_in, float *data_out, struct iir_t *filter, uint32_t length)
@@ -84,7 +95,7 @@ void iir_filter(float *data_in, float *data_out, struct iir_t *filter, uint32_t 
 		data_out[c] = data_out[c] / filter->iir_coeff->a[0];
 		filter->out_buff[(c + filter->cycle) % N] = data_out[c];
 	}
-	filter->cycle = c + filter->cycle;
+	filter->cycle = (c + filter->cycle) % N;
 }
 
 /* All biquad sections will have 3 coefficients on each denominator: */
@@ -95,10 +106,10 @@ void biquad_section_filter(float *data_in, float *data_out,
 {
 	uint32_t c, i, j;
 
-	//	for (j = 0; j < length; j++)
-	//	{
-	//		data_out[j] = 0;
-	//	}
+	for (j = 0; j < length; j++)
+	{
+		data_out[j] = 0;
+	}
 
 	for (c = 0; c < length; c++)
 	{
@@ -115,28 +126,28 @@ void biquad_section_filter(float *data_in, float *data_out,
 		data_out[c] = data_out[c] / section->a[0];
 		section->out_buff[(c + section->cycle) % BIQUAD_FILT_TAPS] = data_out[c];
 	}
-	section->cycle = c + section->cycle;
+	section->cycle = (c + section->cycle) % BIQUAD_FILT_TAPS;
 }
 
 void sos_filter(float *data_in, float *data_out, struct sos_filter_t *filter, uint32_t length)
 {
-	/* Zero out the data_out buffer */
-	for (uint32_t i = 0; i < length; i++)
-	{
-		data_out[i] = 0;
-	}
 
-	float data_in_buff[32];
+	float data_in_buff[32] = {0};
 	for (uint32_t i = 0; i < length; i++)
 	{
 		data_in_buff[i] = data_in[i];
 	}
 	for (uint32_t i = 0; i < filter->num_sections; i++)
 	{
+		biquad_section_filter(data_in_buff, data_out, &filter->biquad_section[i], length);
 		for (uint32_t j = 0; j < length; j++)
 		{
-			data_in_buff[j] = filter->gain * data_out[j];
+			data_in_buff[j] = data_out[j];
 		}
-		biquad_section_filter(data_in_buff, data_out, &filter->biquad_section[i], length);
+	}
+
+	for (uint32_t j = 0; j < length; j++)
+	{
+		data_out[j] = filter->gain * data_out[j];
 	}
 }

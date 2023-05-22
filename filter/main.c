@@ -8,21 +8,21 @@
 #include "../inc/waveform_gen.h"
 
 /* Define the frequency at which the waveform is sampled */
-#define SAMPLING_FREQUENCY 512
+#define SAMPLING_FREQUENCY 64
 
 /* Define the length of the data to work on */
 #define DATA_CHUNK_SIZE 16
-#define DATA_CHUNK_COUNT (SAMPLING_FREQUENCY * 1)
+#define DATA_CHUNK_COUNT (SAMPLING_FREQUENCY * 100)
 #define DATA_SIZE (DATA_CHUNK_SIZE * DATA_CHUNK_COUNT)
 
 /* Define the parameters of the input waveform */
-wave_properties_t wave_1[] = {
-	[0] = {.amplitude = 10, .offset = 0, .frequency = 5, .phase = 0, .function_type = FUNCTION_COS},
-	[1] = {.amplitude = 50, .offset = 0, .frequency = 50, .phase = 0, .function_type = FUNCTION_COS},
-	[2] = {.amplitude = 50, .offset = 0, .frequency = 1, .phase = 0, .function_type = FUNCTION_COS},
-	[3] = {.amplitude = 50, .offset = 0, .frequency = 100, .phase = 0, .function_type = FUNCTION_COS},
+static const wave_properties_t wave_1[] = {
+	[0] = {.amplitude = 10, .offset = 0, .frequency = 0.005, .phase = 0, .function_type = FUNCTION_SINE},
+	[1] = {.amplitude = 10, .offset = 0, .frequency = 0.8, .phase = 0, .function_type = FUNCTION_SINE},
+	[2] = {.amplitude = 10, .offset = 0, .frequency = 5, .phase = 0, .function_type = FUNCTION_SINE},
+	//[3] = {.amplitude = 50, .offset = 0, .frequency = 100, .phase = 0, .function_type = FUNCTION_COS},
 };
-wave_settings_t wave_1_settings = {
+static const wave_settings_t wave_1_settings = {
 	.fs = SAMPLING_FREQUENCY,
 	.data_length = DATA_SIZE,
 	.dc_offset = 0,
@@ -74,7 +74,7 @@ int main()
 	for (uint32_t i = 0; i < DATA_CHUNK_COUNT; i++)
 	{
 		uint32_t start_index = i * DATA_CHUNK_SIZE;
-		//iir_filter(&x[start_index], &y[start_index], &filt, DATA_CHUNK_SIZE);
+		// iir_filter(&x[start_index], &y[start_index], &filt, DATA_CHUNK_SIZE);
 		sos_filter(&x[start_index], &y[start_index], &sos_filt, DATA_CHUNK_SIZE);
 	}
 	/* Print out the data to file */
