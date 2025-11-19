@@ -1,4 +1,5 @@
 #include "cpp_wrapper.h"
+#include <vector>
 
 /* Constructors/destructors for the time class */
 waveform_t::waveform_t(unsigned int _sample_rate, unsigned int _wave_length) {
@@ -10,4 +11,36 @@ waveform_t::waveform_t(unsigned int _sample_rate, unsigned int _wave_length) {
 	for (unsigned int i = 0; i < _wave_length; i++) {
 		t[i] = ((float)i) / _sample_rate;
 	}
+};
+
+/* Constructors/destructors for the data class */
+waveform_x::waveform_x(unsigned int _wave_length) {
+	/* Set the internal variables */
+	wave_length = _wave_length;
+	/* Setup the vector for storing the data elements */
+	x.reserve(_wave_length);
+};
+waveform_x::waveform_x(unsigned int _wave_length,
+					   vector<wave_properties_t> _wave_properties) {
+	/* Set the internal variables */
+	wave_length = _wave_length;
+	/* Setup the vector for storing the data elements */
+	x.reserve(_wave_length);
+	/* Copy the wave properties provided by the constructor caller to the local
+	 * storage */
+	wave_properties = _wave_properties;
+};
+
+/* Data class function definitions */
+void waveform_x::add_wave_properties(float amplitude, float offset,
+									 float frequency, float phase,
+									 HARMONIC_FUNC_E function_type) {
+	/* Create the temporary waveform properties struct and add it to the vector
+	 * storage */
+	wave_properties_t wave_properties_tmp = {.amplitude = amplitude,
+											 .offset = offset,
+											 .frequency = frequency,
+											 .phase = phase,
+											 .function_type = function_type};
+	wave_properties.push_back(wave_properties_tmp);
 };
