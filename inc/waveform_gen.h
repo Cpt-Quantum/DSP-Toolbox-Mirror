@@ -1,6 +1,10 @@
 #ifndef WAVEFORM_GEN
 #define WAVEFORM_GEN
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 #include "complex.h"
@@ -120,5 +124,8 @@ void init_waveform(wave_settings_t wave_settings, float* t, float* x);
 /* *x: pointer to the waveform array */
 void init_waveform_complex(wave_settings_complex_t wave_settings, float* t, complex_t* x);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif //WAVEFORM_GEN

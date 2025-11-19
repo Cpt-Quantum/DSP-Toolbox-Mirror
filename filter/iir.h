@@ -1,6 +1,10 @@
 #ifndef IIR_H
 #define IIR_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include <math.h>
 
@@ -39,5 +43,9 @@ extern struct sos_filter_t sos_filt;
 void iir_filter(float *data_in, float *data_out, struct iir_t *filter, uint32_t length);
 void sos_filter(float *data_in, float *data_out,
 				struct sos_filter_t *sos_filter, uint32_t length);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* IIR_H */

@@ -1,6 +1,10 @@
 #ifndef FILTER_H
 #define FILTER_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include <math.h>
 
@@ -16,5 +20,9 @@ struct filter {
 extern struct filter filt;
 
 void filter_sig (float *x, float *y, struct filter *filt, uint32_t data_length);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	/* FILTER_H */
