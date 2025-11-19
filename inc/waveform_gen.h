@@ -105,6 +105,24 @@ void add_sin_complex(float *x, complex_t *y, bool write_real, bool write_imag,
 void add_cos_complex(float *x, complex_t *y, bool write_real, bool write_imag,
 					 wave_properties_t wave_properties, uint32_t length);
 
+/* The following functions act as look up tables to call the correct function
+ * for adding a wave to the waveform based on the passed wave_properties object.
+ */
+/* wave_properties: The waveform characteristics struct */
+/* x: The x buffer storing time */
+/* y: The data buffer to add the sine/cosine wave to */
+/* data_length: The length of the x and y arrays */
+/* Complex function only parameters: */
+/* write_real: Sets whether the function adds to the real part */
+/* write_imag: Sets whether the function adds to the imaginary part */
+inline void waveform_add_superposition(wave_properties_t wave_properties,
+									   float *x, float *y,
+									   uint32_t data_length);
+inline void
+waveform_add_superposition_complex(wave_properties_t wave_properties, float *x,
+								   complex_t *y, bool write_real,
+								   bool write_imag, int32_t data_length);
+
 /* Initialises the waveform based on the pass wave_settings */
 /* wave_settings: Struct containing all of the wave settings required for */
 /* initialisation. */
@@ -124,4 +142,4 @@ void init_waveform_complex(wave_settings_complex_t wave_settings, float *t,
 }
 #endif
 
-#endif //WAVEFORM_GEN
+#endif // WAVEFORM_GEN
