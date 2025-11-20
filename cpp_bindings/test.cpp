@@ -1,6 +1,6 @@
 #include <iostream>
-#include "cpp_bindings/cpp_wrapper.h"
-#include "inc/waveform_gen.h"
+#include "cpp_wrapper.h"
+#include "../inc/waveform_gen.h"
 
 using namespace std;
 

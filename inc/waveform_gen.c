@@ -80,7 +80,7 @@ void add_cos_complex(float *x, complex_t *y, bool write_real, bool write_imag,
 	}
 }
 
-inline void waveform_add_superposition(wave_properties_t wave_properties,
+void waveform_add_superposition(wave_properties_t wave_properties,
 									   float *x, float *y,
 									   uint32_t data_length) {
 	switch (wave_properties.function_type) {
@@ -95,8 +95,7 @@ inline void waveform_add_superposition(wave_properties_t wave_properties,
 	}
 }
 
-inline void
-waveform_add_superposition_complex(wave_properties_t wave_properties, float *x,
+void waveform_add_superposition_complex(wave_properties_t wave_properties, float *x,
 								   complex_t *y, bool write_real,
 								   bool write_imag, int32_t data_length) {
 	switch (wave_properties.function_type) {
