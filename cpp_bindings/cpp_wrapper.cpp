@@ -34,7 +34,7 @@ waveform_x::waveform_x(unsigned int _wave_length,
 /* Data class function definitions */
 void waveform_x::add_wave_properties(float amplitude, float offset,
 									 float frequency, float phase,
-									 HARMONIC_FUNC_E function_type) {
+									 WAVEFORM_FUNC_E function_type) {
 	/* Create the temporary waveform properties struct and add it to the vector
 	 * storage */
 	wave_properties_t wave_properties_tmp = {.amplitude = amplitude,
@@ -43,4 +43,12 @@ void waveform_x::add_wave_properties(float amplitude, float offset,
 											 .phase = phase,
 											 .function_type = function_type};
 	wave_properties.push_back(wave_properties_tmp);
+};
+void waveform_x::gen_waveform(float *t) {
+	/* Get the number of superpositions in from the wave_properties vector */
+	unsigned int n_superpositions = wave_properties.size();
+	/* Loop through each superposition to calculate the full waveform */
+	for (int i = 0; i < n_superpositions; i++) {
+		waveform_add_superposition(wave_properties[i], t, x.data(), wave_length);
+	}
 };

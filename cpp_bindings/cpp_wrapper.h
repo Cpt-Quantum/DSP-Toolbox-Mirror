@@ -26,8 +26,8 @@ class waveform_x {
   public:
 	/* Functions to add new entries to any vector types */
 	void add_wave_properties(float amplitude, float offset, float frequency,
-							 float phase, HARMONIC_FUNC_E function_type);
-	void gen_waveform();
+							 float phase, WAVEFORM_FUNC_E function_type);
+	void gen_waveform(float *t);
 	/* Constructors/destructors */
 	waveform_x(unsigned int _wave_length);
 	waveform_x(unsigned int _wave_length,
