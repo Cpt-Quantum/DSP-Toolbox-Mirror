@@ -5,6 +5,10 @@
 using namespace std;
 
 
+#define WAVELENGTH 1000
+#define SAMPLE_RATE 250
+#define NUM_CHANNELS 256
+
 static const char output_filename[] = "output_file.csv";
 
 int main()
@@ -22,33 +26,32 @@ int main()
 
 	props.push_back(test_prop);
 
-	int wavelength = 1000;
-	int sample_rate = 250;
-
 	//get the time series
-	waveform_t time_series(sample_rate, wavelength);
+	waveform_t time_series(SAMPLE_RATE, WAVELENGTH);
 	
 	//loop, generating waveform x data with alterations to each channel
-	// vector<vector<float>> channel_data;
-	float channel_data[4][wavelength];
+	vector<waveform_x> ch_data;
 
-	for(int i = 0; i < 4; i++)
+	for(int i = 0; i < NUM_CHANNELS; i++)
 	{
 		props[0].amplitude = (float)i / 100 + 1;
-		waveform_x waveform(wavelength, props);
-		waveform.gen_waveform(time_series.t.data());
 
-		// channel_data.pushback(waveform.x);
-
-		//store in channel data
-		for(int j = 0; j < wavelength; j++)
-			channel_data[i][j] = waveform.x[j];
+		ch_data.push_back(waveform_x(WAVELENGTH, props));
+		ch_data[i].gen_waveform(time_series.t.data());
 	}
 
+	// cout << ch_data[0].x.size();
+	// cout << "\n";
+
 	FILE* out_file = fopen(output_filename, "w");
-	for (int i = 0; i < wavelength; i++)
+	for (int i = 0; i < WAVELENGTH; i++)
 	{
-		fprintf(out_file, "%f,%f,%f,%f,%f\n", time_series.t[i], channel_data[0][i], channel_data[1][i], channel_data[2][i], channel_data[3][i]);
+		fprintf(out_file, "%f", time_series.t[i]);
+		for(int j = 0; j < NUM_CHANNELS; j++)
+		{
+			fprintf(out_file, ",%f", ch_data[j].x[i]);
+		}
+		fprintf(out_file, "\n");
 	}
 
 	return 0;
