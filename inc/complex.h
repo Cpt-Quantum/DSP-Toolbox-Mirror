@@ -24,8 +24,4 @@ float complex_magnitude(complex_t x);
 }
 #endif
 
-#ifdef __cplusplus
-}
-#endif
-
 #endif //COMPLEX_H
