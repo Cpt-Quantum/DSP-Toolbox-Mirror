@@ -128,15 +128,14 @@ waveform_add_superposition_complex(wave_properties_t wave_properties, float *t,
 /* initialisation. */
 /* *t: pointer to the time array */
 /* *t: pointer to the waveform array */
-void init_waveform(wave_settings_t wave_settings, float *t, float *t);
+void init_waveform(wave_settings_t wave_settings, float *t);
 
 /* Initialises a complex waveform based on the passed wave_settings */
 /* wave_settings: Struct containing all of the wave settings required for */
 /* initialisation. */
 /* *t: pointer to the time array */
 /* *t: pointer to the waveform array */
-void init_waveform_complex(wave_settings_complex_t wave_settings, float *t,
-						   complex_t *t);
+void init_waveform_complex(wave_settings_complex_t wave_settings, float *t, complex_t *x);
 
 #ifdef __cplusplus
 }

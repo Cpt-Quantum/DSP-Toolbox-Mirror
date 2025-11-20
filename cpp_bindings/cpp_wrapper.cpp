@@ -48,7 +48,7 @@ void waveform_x::gen_waveform(float *t) {
 	/* Get the number of superpositions in from the wave_properties vector */
 	unsigned int n_superpositions = wave_properties.size();
 	/* Loop through each superposition to calculate the full waveform */
-	for (int i = 0; i < n_superpositions; i++) {
+	for (unsigned int i = 0; i < n_superpositions; i++) {
 		waveform_add_superposition(wave_properties[i], t, x.data(), wave_length);
 	}
 };

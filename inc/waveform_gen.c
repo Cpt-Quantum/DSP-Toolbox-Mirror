@@ -112,7 +112,7 @@ void waveform_add_superposition_complex(wave_properties_t wave_properties, float
 	}
 }
 
-void init_waveform(wave_settings_t wave_settings, float *t, float *t) {
+void init_waveform(wave_settings_t wave_settings, float *t) {
 	/* Generate the time according to settings first */
 	gen_time(t, wave_settings.data_length, wave_settings.fs);
 	/* Now generate the main waveform */
