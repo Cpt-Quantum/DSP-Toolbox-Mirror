@@ -5,9 +5,9 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
-
 #include "complex.h"
+#include <stdbool.h>
+#include <stdint.h>
 
 /* Enum type for setting what function should be used for a wave used as a */
 /* superposition. Used in the wave_properties_t struct. */
@@ -115,27 +115,26 @@ void add_cos_complex(float *t, complex_t *x, bool write_real, bool write_imag,
 /* Complex function only parameters: */
 /* write_real: Sets whether the function adds to the real part */
 /* write_imag: Sets whether the function adds to the imaginary part */
-void waveform_add_superposition(wave_properties_t wave_properties,
-									   float *t, float *x,
-									   uint32_t data_length);
-void
-waveform_add_superposition_complex(wave_properties_t wave_properties, float *t,
-								   complex_t *x, bool write_real,
-								   bool write_imag, int32_t data_length);
+void waveform_add_superposition(wave_properties_t wave_properties, float *t,
+								float *x, uint32_t data_length);
+void waveform_add_superposition_complex(wave_properties_t wave_properties,
+										float *t, complex_t *x, bool write_real,
+										bool write_imag, int32_t data_length);
 
 /* Initialises the waveform based on the pass wave_settings */
 /* wave_settings: Struct containing all of the wave settings required for */
 /* initialisation. */
 /* *t: pointer to the time array */
-/* *t: pointer to the waveform array */
-void init_waveform(wave_settings_t wave_settings, float *t);
+/* *x: pointer to the waveform array */
+void init_waveform(wave_settings_t wave_settings, float *t, float *x);
 
 /* Initialises a complex waveform based on the passed wave_settings */
 /* wave_settings: Struct containing all of the wave settings required for */
 /* initialisation. */
 /* *t: pointer to the time array */
 /* *t: pointer to the waveform array */
-void init_waveform_complex(wave_settings_complex_t wave_settings, float *t, complex_t *x);
+void init_waveform_complex(wave_settings_complex_t wave_settings, float *t,
+						   complex_t *x);
 
 #ifdef __cplusplus
 }

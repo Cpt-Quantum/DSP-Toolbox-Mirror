@@ -112,12 +112,12 @@ void waveform_add_superposition_complex(wave_properties_t wave_properties, float
 	}
 }
 
-void init_waveform(wave_settings_t wave_settings, float *t) {
+void init_waveform(wave_settings_t wave_settings, float *t, float *x) {
 	/* Generate the time according to settings first */
 	gen_time(t, wave_settings.data_length, wave_settings.fs);
 	/* Now generate the main waveform */
 	for (uint8_t i = 0; i < wave_settings.num_superpositions; i++) {
-		waveform_add_superposition(wave_settings.superposition[i], t, t,
+		waveform_add_superposition(wave_settings.superposition[i], t, x,
 								   wave_settings.data_length);
 	}
 	/* Add in the DC offset for the signal */

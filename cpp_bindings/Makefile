@@ -12,12 +12,8 @@ C_SRC += $(PATH_INCLUDE)/complex.c
 
 LINKER_FLAGS = -lm
 
-clean:
-	rm $(TARGET).o
-	rm output_file.csv
-
 test:
 	$(CC) $(CFLAGS) $(C_SRC) -o $(TARGET).o $(LINKER_FLAGS)
 
-test_python:
-	$(CC) $(CFLAGS) $(C_SRC) -o $(TARGET).so $(LINKER_FLAGS) -fPIC
+clean:
+	rm $(TARGET).o
