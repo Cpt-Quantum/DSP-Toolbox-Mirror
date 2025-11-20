@@ -30,6 +30,8 @@ class waveform_x {
 	void gen_waveform();
 	/* Constructors/destructors */
 	waveform_x(unsigned int _wave_length);
+	waveform_x(unsigned int _wave_length,
+			   vector<wave_properties_t> _wave_properties);
 	~waveform_x();
 };
 
