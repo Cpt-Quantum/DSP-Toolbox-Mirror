@@ -34,7 +34,7 @@ int main()
 
 	for(int i = 0; i < NUM_CHANNELS; i++)
 	{
-		props[0].amplitude = (float)i / 100 + 1;
+		props[0].amplitude = (float)i / 256;
 
 		ch_data.push_back(waveform_x(WAVELENGTH, props));
 		ch_data[i].gen_waveform(time_series.t.data());

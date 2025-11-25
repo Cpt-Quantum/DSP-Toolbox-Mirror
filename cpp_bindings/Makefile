@@ -16,4 +16,5 @@ test:
 	$(CC) $(CFLAGS) $(C_SRC) -o $(TARGET).o $(LINKER_FLAGS)
 
 clean:
-	rm $(TARGET).o
+	-rm $(TARGET).o
+	-rm output_file.csv
