@@ -9,7 +9,7 @@ waveform_t::waveform_t(unsigned int _sample_rate, unsigned int _wave_length) {
 	/* Create the time array and then calculate the time values */
 	t.reserve(_wave_length);
 	for (unsigned int i = 0; i < _wave_length; i++) {
-		t[i] = ((float)i) / _sample_rate;
+		t.push_back(((float)i) / _sample_rate);
 	}
 };
 
@@ -18,14 +18,14 @@ waveform_x::waveform_x(unsigned int _wave_length) {
 	/* Set the internal variables */
 	wave_length = _wave_length;
 	/* Setup the vector for storing the data elements */
-	x.reserve(_wave_length);
+	x.resize(_wave_length);
 };
 waveform_x::waveform_x(unsigned int _wave_length,
 					   vector<wave_properties_t> _wave_properties) {
 	/* Set the internal variables */
 	wave_length = _wave_length;
 	/* Setup the vector for storing the data elements */
-	x.reserve(_wave_length);
+	x.resize(_wave_length);
 	/* Copy the wave properties provided by the constructor caller to the local
 	 * storage */
 	wave_properties = _wave_properties;

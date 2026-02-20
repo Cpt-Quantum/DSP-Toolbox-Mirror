@@ -4,7 +4,6 @@
 
 using namespace std;
 
-
 #define WAVELENGTH 1000
 #define SAMPLE_RATE 250
 #define NUM_CHANNELS 256 + 16
@@ -67,6 +66,7 @@ int main()
 		}
 		fprintf(out_file, "\n");
 	}
+	fclose(out_file);
 
 	return 0;
 }
