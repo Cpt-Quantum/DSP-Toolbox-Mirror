@@ -1,5 +1,13 @@
-input_filename = "input_data.csv";
-f_s = 4000;
+% Set any constants
+f_s = 16000;
+
+% Get command line arguments
+args = argv();
+if (length(args) < 1)
+  printf("Usage: fft_from_file.m <filename.csv>");
+  exit(1);
+endif
+input_filename = args{1};
 
 % Load input data file
 data_in = dlmread(input_filename);
@@ -10,10 +18,10 @@ printf("Size of input data: %u\n", DATA_SIZE);
 step_size = 1/f_s;
 t = 0 : 1/f_s : (DATA_SIZE-1)/f_s;
 
-f = zeros(DATA_SIZE/2,1);
+f = zeros(floor(DATA_SIZE/2),1);
 y2 = zeros(DATA_SIZE,1);
 F_k = zeros(DATA_SIZE,1);
-trunc_F_k = zeros(DATA_SIZE/2,1);
+trunc_F_k = zeros(floor(DATA_SIZE/2),1);
 
 for(i=1:DATA_SIZE/2)
   f(i) = ((f_s * (i-1)) / DATA_SIZE);
