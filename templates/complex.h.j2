@@ -1,0 +1,26 @@
+#ifndef COMPLEX_{{ type | upper }}_H
+#define COMPLEX_{{ type | upper }}_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stdint.h>
+#include <math.h>
+
+/* This defines the type for a single complex number for type {{ type }} */
+typedef struct {
+	{{ type }} real;
+	{{ type }} imag;
+} complex_{{ type }}_t;
+
+complex_{{ type }}_t complex_multiply_{{ type }}(complex_{{ type }}_t x, complex_{{ type }}_t y);
+complex_{{ type }}_t complex_add_{{ type }}(complex_{{ type }}_t x, complex_{{ type }}_t y);
+complex_{{ type }}_t complex_conjugate_{{ type }}(complex_{{ type }}_t x);
+{{ type }} complex_magnitude_{{ type }}(complex_{{ type }}_t x);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // COMPLEX_{{ type | upper }}_H

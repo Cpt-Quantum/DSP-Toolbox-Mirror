@@ -1,0 +1,39 @@
+#include <stdint.h>
+#include <math.h>
+
+#include "complex_{{ type }}.h"
+
+complex_{{ type }}_t complex_multiply_{{ type }}(complex_{{type}}_t x, complex_{{type}}_t y) 
+{
+	complex_{{type}}_t ret;
+
+	ret.real = (x.real * y.real) - (x.imag * y.imag);
+	ret.imag = (x.real * y.imag) + (y.real * x.imag);
+
+	return ret;
+}
+
+complex_{{ type }}_t complex_add_{{ type }}(complex_{{type}}_t x, complex_{{type}}_t y)
+{
+	complex_{{type}}_t ret;
+
+	ret.real = x.real + y.real;
+	ret.imag = x.imag + y.imag;
+
+	return ret;
+}
+
+complex_{{ type }}_t complex_conjugate_{{ type }}(complex_{{type}}_t x)
+{
+	complex_{{type}}_t ret;
+
+	ret.real = x.real;
+	ret.imag = - x.imag;
+
+	return ret;
+}
+
+{{ type }} complex_magnitude_{{ type }}(complex_{{type}}_t x)
+{
+	return {{ math_prefix }}sqrt{{ math_suffix }}( (x.real * x.real) + (x.imag * x.imag) );
+}
