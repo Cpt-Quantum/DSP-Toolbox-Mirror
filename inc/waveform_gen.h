@@ -9,6 +9,12 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifdef DOUBLE_EN
+#define FLOAT double
+#else
+#define FLOAT float
+#endif
+
 /* Enum type for setting what function should be used for a wave used as a */
 /* superposition. Used in the wave_properties_t struct. */
 typedef enum {
