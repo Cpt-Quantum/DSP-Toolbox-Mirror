@@ -6,14 +6,14 @@ CFLAGS += -fPIC
 
 PATH_INCLUDE = ../inc
 
-C_SRC = $(PATH_INCLUDE)/waveform_gen.c
-C_SRC += $(PATH_INCLUDE)/constants.c
-C_SRC += $(PATH_INCLUDE)/complex.c
+C_SRC = $(PATH_INCLUDE)/waveform_gen_float.c
+C_SRC += $(PATH_INCLUDE)/constants_float.c
+C_SRC += $(PATH_INCLUDE)/complex_float.c
 C_SRC += py_bindings.c
 
-O_FILES = waveform_gen.o
-O_FILES += constants.o
-O_FILES += complex.o
+O_FILES = waveform_gen_float.o
+O_FILES += constants_float.o
+O_FILES += complex_float.o
 O_FILES += py_bindings.o
 
 SO_FILE = clib.so

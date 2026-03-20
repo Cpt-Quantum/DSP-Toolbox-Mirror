@@ -1,54 +1,54 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdint.h>
-#include "../inc/constants.h"
-#include "../inc/waveform_gen.h"
+#include "../inc/constants_float.h"
+#include "../inc/waveform_gen_float.h"
 #include "avg.h"
 
 /* Define the input waveforms */
 /* Waveform 1 */
 #define WAVE_1_DC_OFFSET (3.3 / 2)
-static const wave_properties_t wave_prop_1[] = {
+static const wave_properties_float_t wave_prop_1[] = {
 	[0] = {
 		.amplitude = 1,
 		.offset = 0,
 		.frequency = 80,
 		.phase = 0,
-		.function_type = FUNCTION_SINE,
+		.function_type = FUNCTION_SINE_FLOAT,
 	},
 	[1] = {
 		.amplitude = 0.8,
 		.offset = 0,
 		.frequency = 200,
 		.phase = 0,
-		.function_type = FUNCTION_SINE,
+		.function_type = FUNCTION_SINE_FLOAT,
 	},
 	[2] = {
 		.amplitude = 1.2,
 		.offset = 0,
 		.frequency = 1000,
 		.phase = 0,
-		.function_type = FUNCTION_SINE,
+		.function_type = FUNCTION_SINE_FLOAT,
 	},
 	[3] = {
 		.amplitude = 0.9,
 		.offset = 0,
 		.frequency = 4000,
 		.phase = 0,
-		.function_type = FUNCTION_SINE,
+		.function_type = FUNCTION_SINE_FLOAT,
 	},
 	[4] = {
 		.amplitude = 0.5,
 		.offset = 0,
 		.frequency = 8000,
 		.phase = 0,
-		.function_type = FUNCTION_SINE,
+		.function_type = FUNCTION_SINE_FLOAT,
 	},
 };
 #define WAVE_1_SUP_COUNT (sizeof(wave_prop_1) / sizeof(wave_prop_1[0]))
 #define WAVE_1_FS 40000
 #define WAVE_1_LENGTH (WAVE_1_FS * 2)
-static const wave_settings_t wave_sett_1 = {
+static const wave_settings_float_t wave_sett_1 = {
 	.fs = WAVE_1_FS,
 	.data_length = WAVE_1_LENGTH,
 	.dc_offset = WAVE_1_DC_OFFSET,
@@ -82,7 +82,7 @@ static const char power_filename[] = "power.csv";
 
 int main(void)
 {
-	init_waveform(wave_sett_1, t_1, x_1);
+	init_waveform_float(wave_sett_1, t_1, x_1);
 
 	/* Print the input waveform out to file */
 	FILE *ifile = fopen(input_filename, "w");

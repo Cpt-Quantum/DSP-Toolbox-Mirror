@@ -1,6 +1,6 @@
 #include <iostream>
 #include "cpp_wrapper.h"
-#include "../inc/waveform_gen.h"
+#include "../inc/waveform_gen_float.h"
 
 using namespace std;
 
@@ -12,15 +12,15 @@ static const char output_filename[] = "output_file.csv";
 
 int main()
 {
-	vector<wave_properties_t> props;
+	vector<wave_properties_float_t> props;
 	
 	//configure basic waveform properties
-	wave_properties_t test_prop = {
+	wave_properties_float_t test_prop = {
 		.amplitude = 1,
 		.offset = 0,
 		.frequency = 1,
 		.phase = 0,
-		.function_type = FUNCTION_SINE
+		.function_type = FUNCTION_SINE_FLOAT
 	};
 
 	props.push_back(test_prop);

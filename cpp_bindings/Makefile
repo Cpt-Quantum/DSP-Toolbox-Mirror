@@ -4,9 +4,9 @@ CFLAGS = -Wall -g
 PATH_INCLUDE = ../inc
 
 C_SRC = cpp_wrapper.cpp
-C_SRC += $(PATH_INCLUDE)/waveform_gen.c
-C_SRC += $(PATH_INCLUDE)/constants.c
-C_SRC += $(PATH_INCLUDE)/complex.c
+C_SRC += $(PATH_INCLUDE)/waveform_gen_float.c
+C_SRC += $(PATH_INCLUDE)/constants_float.c
+C_SRC += $(PATH_INCLUDE)/complex_float.c
 
 LINKER_FLAGS = -lm
 

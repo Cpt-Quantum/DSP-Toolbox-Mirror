@@ -1,2 +1,2 @@
 main:
-	gcc -Wall main.c ../inc/waveform_gen.c ../inc/constants.c avg.c -o main.o -lm -g
+	gcc -Wall main.c ../inc/*.c avg.c -o main.o -lm -g

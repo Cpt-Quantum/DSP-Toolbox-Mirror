@@ -8,12 +8,12 @@ extern "C" {
 #include <math.h>
 #include <stdint.h>
 
-#include "../inc/complex.h"
+#include "../inc/complex_float.h"
 
-void ft(complex_t data_in[], complex_t data_out[], int data_size);
+void ft(complex_float_t data_in[], complex_float_t data_out[], int data_size);
 
 //Radix-2 FFT
-void fft(complex_t data_in[], complex_t data_out[], int data_size);
+void fft(complex_float_t data_in[], complex_float_t data_out[], int data_size);
 
 #ifdef __cplusplus
 }

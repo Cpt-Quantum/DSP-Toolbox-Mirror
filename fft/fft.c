@@ -1,17 +1,17 @@
 #include <math.h>
 #include <stdint.h>
 
-#include "../inc/constants.h"
-#include "../inc/complex.h"
+#include "../inc/constants_float.h"
+#include "../inc/complex_float.h"
 #include "fft.h"
 
-void ft(complex_t data_in[], complex_t data_out[], int data_size)
+void ft(complex_float_t data_in[], complex_float_t data_out[], int data_size)
 {
 	for (int i = 0; i < data_size; i++)
 	{
 		for (int j = 0; j < data_size; j++)
 		{
-			float exponent = (pi2 / data_size) * i * j;
+			float exponent = (pi2_float / data_size) * i * j;
 			/* Calculate the cos (c) and sin (s) parts ahead of use */
 			float c = cos(exponent);
 			float s = sin(exponent);
@@ -24,10 +24,10 @@ void ft(complex_t data_in[], complex_t data_out[], int data_size)
 }
 
 //Radix-2 FFT
-//void fft(complex_t data_in[], complex_t data_out[], int data_size)
+//void fft(complex_float_t data_in[], complex_float_t data_out[], int data_size)
 //{
-//	complex_t E[data_size / 2];
-//	complex_t O[data_size / 2];
+//	complex_float_t E[data_size / 2];
+//	complex_float_t O[data_size / 2];
 //
 //	int n;
 //	int m;
@@ -40,7 +40,7 @@ void ft(complex_t data_in[], complex_t data_out[], int data_size)
 //	float s;
 //
 //
-//	//float W = (pi2 * 2) / data_size;
+//	//float W = (pi2_float * 2) / data_size;
 //
 //	for (k = 0; k < data_size / 2; k++)
 //	{
@@ -48,7 +48,7 @@ void ft(complex_t data_in[], complex_t data_out[], int data_size)
 //		for (n = 0; n < data_size / 2; n++)
 //		{
 //			m = 2 * n;
-//			exponent = (pi2 * 2 * m * k) / data_size;
+//			exponent = (pi2_float * 2 * m * k) / data_size;
 //			c = cos(exponent);
 //			s = sin(exponent);
 //
@@ -60,7 +60,7 @@ void ft(complex_t data_in[], complex_t data_out[], int data_size)
 //		for (n = 0; n < ((data_size / 2) - 1); n++)
 //		{
 //			m = 2 * n + 1;
-//			exponent = (pi2 * 2 * m * k) / data_size;
+//			exponent = (pi2_float * 2 * m * k) / data_size;
 //			c = cos(exponent);
 //			s = sin(exponent);
 //
@@ -72,7 +72,7 @@ void ft(complex_t data_in[], complex_t data_out[], int data_size)
 //	/* Apply the coefficients E[] and O[] to each k value */
 //	for (k = 0; k < data_size / 2; k++)
 //	{
-//		exponent = (pi2 * k) / data_size;
+//		exponent = (pi2_float * k) / data_size;
 //		c = cos(exponent);
 //		s = sin(exponent);
 //
@@ -82,7 +82,7 @@ void ft(complex_t data_in[], complex_t data_out[], int data_size)
 //		data_out[k + (data_size / 2)].imag = E[k].imag + (c * O[k].imag - s * O[k].real);
 //	}
 //}
-void fft(complex_t data_in[], complex_t data_out[], int data_size)
+void fft(complex_float_t data_in[], complex_float_t data_out[], int data_size)
 {
 
 }

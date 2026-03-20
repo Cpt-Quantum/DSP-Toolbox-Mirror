@@ -3,9 +3,9 @@
 #include <stdint.h>
 
 #include "iir.h"
-#include "../inc/constants.h"
-#include "../inc/complex.h"
-#include "../inc/waveform_gen.h"
+#include "../inc/constants_float.h"
+#include "../inc/complex_float.h"
+#include "../inc/waveform_gen_float.h"
 
 /* Define the frequency at which the waveform is sampled */
 #define SAMPLING_FREQUENCY 64
@@ -16,13 +16,13 @@
 #define DATA_SIZE (DATA_CHUNK_SIZE * DATA_CHUNK_COUNT)
 
 /* Define the parameters of the input waveform */
-static const wave_properties_t wave_1[] = {
-	[0] = {.amplitude = 10, .offset = 0, .frequency = 0.005, .phase = 0, .function_type = FUNCTION_SINE},
-	[1] = {.amplitude = 10, .offset = 0, .frequency = 0.8, .phase = 0, .function_type = FUNCTION_SINE},
-	[2] = {.amplitude = 10, .offset = 0, .frequency = 5, .phase = 0, .function_type = FUNCTION_SINE},
-	//[3] = {.amplitude = 50, .offset = 0, .frequency = 100, .phase = 0, .function_type = FUNCTION_COS},
+static const wave_properties_float_t wave_1[] = {
+	[0] = {.amplitude = 10, .offset = 0, .frequency = 0.005, .phase = 0, .function_type = FUNCTION_SINE_FLOAT},
+	[1] = {.amplitude = 10, .offset = 0, .frequency = 0.8, .phase = 0, .function_type = FUNCTION_SINE_FLOAT},
+	[2] = {.amplitude = 10, .offset = 0, .frequency = 5, .phase = 0, .function_type = FUNCTION_SINE_FLOAT},
+	//[3] = {.amplitude = 50, .offset = 0, .frequency = 100, .phase = 0, .function_type = FUNCTION_COS_FLOAT},
 };
-static const wave_settings_t wave_1_settings = {
+static const wave_settings_float_t wave_1_settings = {
 	.fs = SAMPLING_FREQUENCY,
 	.data_length = DATA_SIZE,
 	.dc_offset = 0,
@@ -66,8 +66,8 @@ int main()
 	}
 
 	/* Generate time and data */
-	gen_time(t, DATA_SIZE, SAMPLING_FREQUENCY);
-	init_waveform(wave_1_settings, t, x);
+	gen_time_float(t, DATA_SIZE, SAMPLING_FREQUENCY);
+	init_waveform_float(wave_1_settings, t, x);
 
 	/* Perform the filter */
 	/* The data is sent through in chunks to simulate live data */
