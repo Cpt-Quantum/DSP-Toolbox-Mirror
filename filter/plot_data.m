@@ -13,6 +13,8 @@ t_out = data_out(:,1);
 y = data_out(:,2);
 
 figure(1);
-plot(t_in, x, t_out, y);
+h = plot(t_in, x, t_out, y);
 %plot(data_in);
 legend("Input data", "Output data");
+
+waitfor(h);
