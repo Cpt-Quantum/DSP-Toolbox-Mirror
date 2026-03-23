@@ -1,0 +1,18 @@
+#ifndef SPECTRUM_GEN_{{ type | upper }}_H
+#define SPECTRUM_GEN_{{ type | upper }}_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stdint.h>
+#include "spectrum_gen_shared.h"
+#include "waveform_gen_{{ type }}.h"
+
+void generate_spectrum_waveform_{{ type }}({{ type }} *t, {{ type }} *x, uint32_t data_length, uint32_t sample_rate, uint32_t num_steps, AMPLITUDE_SPECTRUM_E profile);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* SPECTRUM_GEN_{{ type | upper }}_H */
