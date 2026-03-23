@@ -1,0 +1,136 @@
+import numpy as np
+import scipy.signal as signal
+
+# Setup the filter constants
+f_s = 16000.0  # Sampling frequency
+f_pb = 2000.0  # Passband frequency
+f_sb = 4000.0  # Stopband frequency
+filt_gain = 40  # Sets the filter amplitude reduction at the stopband (used for IIR)
+fir_taps = 100  # Sets the number of coefficients to design for in the FIR design
+
+# Output filename
+filename = "main_inc"
+
+# Design the base IIR (a, b)
+iir_b, iir_a = signal.iirdesign(
+    wp=f_pb,
+    ws=f_sb,
+    gpass=1,
+    gstop=filt_gain,
+    fs=f_s,
+    output="ba",
+)
+# Design the SoS IIR
+sos = signal.iirdesign(
+    wp=f_pb,
+    ws=f_sb,
+    gpass=1,
+    gstop=filt_gain,
+    fs=f_s,
+    output="sos",
+)
+# Design the FIR
+fir_b = signal.remez(
+    fir_taps,
+    [0, f_pb, f_sb, f_s / 2],
+    [1, 0],
+    fs=f_s,
+)
+
+
+# Handle the output to files
+def format_array(arr, indent=4):
+    """Formats a 1D numpy array into a C-style comma-separated string block."""
+    vals = [f"{x:.15e}" for x in arr]
+    lines = []
+    # Group by 4 values per line
+    for i in range(0, len(vals), 4):
+        lines.append(" " * indent + ", ".join(vals[i : i + 4]))
+    return ",\n".join(lines)
+
+
+# Generate the .c file
+with open(f"{filename}.c", "w") as f:
+
+    # Header Includes
+    f.write('#include "main_inc.h"\n')
+    f.write('#include "fir.h"\n')
+    f.write('#include "iir.h"\n\n')
+
+    # ==========================================
+    # Second Order Sections (SOS)
+    # ==========================================
+    f.write("/* Set the coefficients for each of the second order sections */\n")
+    f.write("struct biquad_section_t biquads[] = {\n")
+
+    for i, row in enumerate(sos):
+        b0, b1, b2, a0, a1, a2 = row
+        f.write(f"\t[{i}] =\n")
+        f.write("\t\t{\n")
+        f.write(f"\t\t\t.a = {{{a0:.15e}, {a1:.15e}, {a2:.15e}}},\n")
+        f.write(f"\t\t\t.b = {{{b0:.15e}, {b1:.15e}, {b2:.15e}}},\n")
+        f.write("\t\t\t.in_buff = {0},\n")
+        f.write("\t\t\t.out_buff = {0},\n")
+        f.write("\t\t\t.cycle = 0,\n")
+        f.write("\t\t},\n")
+
+    f.write("};\n")
+    f.write(f"#define IIR_SOS_SECTIONS {sos.shape[0]}\n")
+    f.write("struct sos_filter_t sos_filt = {\n")
+    f.write("\t.biquad_section = biquads,\n")
+    f.write("\t.num_sections = IIR_SOS_SECTIONS,\n")
+    f.write("\t.gain = 1,\n")
+    f.write("};\n")
+    f.write("/* End of second order sections definition */\n\n")
+
+    # ==========================================
+    # Standard IIR (a, b)
+    # ==========================================
+    f.write("/* Define IIR filter parameters */\n")
+    f.write("float iir_filt_a[] = {\n" + format_array(iir_a, indent=4) + "\n};\n")
+    f.write("float iir_filt_b[] = {\n" + format_array(iir_b, indent=4) + "\n};\n")
+    f.write("#define IIR_FILT_TAPS (sizeof(iir_filt_a) / sizeof(iir_filt_a[0]))\n")
+    f.write("float iir_filt_in_buff[IIR_FILT_TAPS] = {0};\n")
+    f.write("float iir_filt_out_buff[IIR_FILT_TAPS] = {0};\n\n")
+
+    f.write("struct iir_coeff_t iir_coeffs = {.a = iir_filt_a, .b = iir_filt_b};\n\n")
+
+    f.write("struct iir_t iir_filt = {.iir_coeff = &iir_coeffs,\n")
+    f.write("\t\t\t\t\t\t .in_buff = iir_filt_in_buff,\n")
+    f.write("\t\t\t\t\t\t .out_buff = iir_filt_out_buff,\n")
+    f.write("\t\t\t\t\t\t .taps = IIR_FILT_TAPS,\n")
+    f.write("\t\t\t\t\t\t .cycle = 0};\n")
+    f.write("/* End of IIR filter definition */\n\n")
+
+    # ==========================================
+    # FIR
+    # ==========================================
+    f.write("/* FIR filter definition */\n")
+    f.write("float fir_filt_coeff[] = {\n" + format_array(fir_b, indent=4) + "\n};\n")
+    f.write(
+        "#define FIR_FILT_TAPS (sizeof(fir_filt_coeff) / sizeof(fir_filt_coeff[0]))\n"
+    )
+    f.write("float fir_filt_in_buff[FIR_FILT_TAPS] = {0};\n")
+
+    f.write("struct fir_t fir_filt = {.b = fir_filt_coeff,\n")
+    f.write("\t\t\t\t\t\t .in_buff = fir_filt_in_buff,\n")
+    f.write("\t\t\t\t\t\t .taps = FIR_FILT_TAPS,\n")
+    f.write("\t\t\t\t\t\t .cycle = 0};\n")
+    f.write("/* End of FIR filter definition */\n")
+
+
+# Generate the .h file
+with open(f"{filename}.h", "w") as f:
+    f.write("#ifndef MAIN_INC_H\n")
+    f.write("#define MAIN_INC_H\n\n")
+    f.write('#include "fir.h"\n')
+    f.write('#include "iir.h"\n\n')
+    f.write("/* Define the frequency at which the waveform is sampled */\n")
+    f.write(f"#define SAMPLING_FREQUENCY {int(f_s)}\n\n")
+    f.write("/* Make the necessary symbols visible publically */\n")
+    f.write("extern struct sos_filter_t sos_filt;\n")
+    f.write("extern struct iir_t iir_filt;\n")
+    f.write("extern struct fir_t fir_filt;\n\n")
+    f.write("#endif /* MAIN_INC_H */\n")
+
+print(f"Success! {filename} .c/.h files have been generated.")
