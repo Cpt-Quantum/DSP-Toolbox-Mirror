@@ -3,3 +3,4 @@ tags
 *.csv
 .vscode
 compile_commands.json
+filter/results/

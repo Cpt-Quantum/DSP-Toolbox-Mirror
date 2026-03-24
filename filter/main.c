@@ -16,7 +16,7 @@ const char fir_decimation_filename[] = "results/fir_decimation_data.csv";
 
 /* Define any filter constants not set in the main_inc file */
 #define DECIMATION_RATE 4
-#define SPECTRUM_FREQUENCY_BINS 100
+#define SPECTRUM_FREQUENCY_BINS 1000
 
 /* Define the length of the data to work on. These aren't strictly necessary,
  * the filters can be ran against a full long dataset. This just tests filter
@@ -26,7 +26,7 @@ const char fir_decimation_filename[] = "results/fir_decimation_data.csv";
 #define DATA_SIZE (DATA_CHUNK_SIZE * DATA_CHUNK_COUNT)
 
 void fprint_data(const char *filename, float *t, float *x,
-				 unsigned int data_length) {
+				 unsigned int data_length, uint8_t decimation_rate) {
 	/* Open the file and check it opened successfully, if not then exit */
 	FILE *file = fopen(filename, "w");
 	if (file == NULL) {
@@ -36,8 +36,17 @@ void fprint_data(const char *filename, float *t, float *x,
 	/* Print the header */
 	fprintf(file, "Time,Amplitude\n");
 	/* Print the time data and waveform data to file */
-	for (int i = 0; i < data_length; i++) {
-		fprintf(file, "%f,%f\n", t[i], x[i]);
+	if (decimation_rate > 1) {
+		/* Only print every Nth time value in the case of decimated data, where
+		 * N = decimation_rate */
+		for (int i = 0; i < data_length; i++) {
+			fprintf(file, "%f,%f\n", t[decimation_rate * i], x[i]);
+		}
+	} else {
+		/* No decimation on the data, so use all time values */
+		for (int i = 0; i < data_length; i++) {
+			fprintf(file, "%f,%f\n", t[i], x[i]);
+		}
 	}
 	/* Close the file */
 	fclose(file);
@@ -83,12 +92,12 @@ int main() {
 	printf("Filtering of data completed. Outputting all data to files.\n");
 
 	/* Print all data to file, including the data input */
-	fprint_data(in_filename, t, data_in, DATA_SIZE);
-	fprint_data(iir_simple_filename, t, iir_simple_filtered_data, DATA_SIZE);
-	fprint_data(iir_sos_filename, t, iir_sos_filtered_data, DATA_SIZE);
-	fprint_data(fir_filename, t, fir_filtered_data, DATA_SIZE);
+	fprint_data(in_filename, t, data_in, DATA_SIZE, 1);
+	fprint_data(iir_simple_filename, t, iir_simple_filtered_data, DATA_SIZE, 1);
+	fprint_data(iir_sos_filename, t, iir_sos_filtered_data, DATA_SIZE, 1);
+	fprint_data(fir_filename, t, fir_filtered_data, DATA_SIZE, 1);
 	fprint_data(fir_decimation_filename, t, fir_decimation_filtered_data,
-				DATA_SIZE / DECIMATION_RATE);
+				DATA_SIZE / DECIMATION_RATE, DECIMATION_RATE);
 
 	/* Free the memory reserved for the data */
 	free(t);
