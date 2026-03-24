@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdint.h>
 
 #include "fir.h"
@@ -37,7 +38,7 @@ void fir_decimate(float *data_in, float *data_out, struct fir_t *filter,
 	 */
 	uint32_t c, i, j;
 
-	for (i = 0; i < length; i++) {
+	for (i = 0; i < length / decimation_rate; i++) {
 		data_out[i] = 0;
 	}
 
@@ -46,7 +47,7 @@ void fir_decimate(float *data_in, float *data_out, struct fir_t *filter,
 		filter->in_buff[(c + filter->cycle) % N] = data_in[c];
 		/* Only calculate the filter against the output values to avoid
 		 * unnecessary computation */
-		if (c % decimation_rate) {
+		if ((c % decimation_rate) == 0) {
 			for (i = 0; i < N; i++) {
 				data_out[j] =
 					data_out[j] +

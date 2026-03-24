@@ -1,89 +1,102 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
-#include "../inc/waveform_gen_float.h"
+#include "../inc/spectrum_gen_float.h"
 #include "fir.h"
 #include "iir.h"
 #include "main_inc.h"
 
 /* Define the filenames for the input data file and the output data file */
-const char in_filename[] = "input_data.csv";
-const char out_filename[] = "output_data.csv";
+const char in_filename[] = "results/input_data.csv";
+const char iir_simple_filename[] = "results/iir_simple_data.csv";
+const char iir_sos_filename[] = "results/iir_sos_data.csv";
+const char fir_filename[] = "results/fir_data.csv";
+const char fir_decimation_filename[] = "results/fir_decimation_data.csv";
 
-/* Define the length of the data to work on */
+/* Define any filter constants not set in the main_inc file */
+#define DECIMATION_RATE 4
+#define SPECTRUM_FREQUENCY_BINS 100
+
+/* Define the length of the data to work on. These aren't strictly necessary,
+ * the filters can be ran against a full long dataset. This just tests filter
+ * behaviour in a real time processing environment. */
 #define DATA_CHUNK_SIZE 16
-#define DATA_CHUNK_COUNT (SAMPLING_FREQUENCY * 100)
+#define DATA_CHUNK_COUNT (SAMPLING_FREQUENCY)
 #define DATA_SIZE (DATA_CHUNK_SIZE * DATA_CHUNK_COUNT)
 
-/* Define the parameters of the input waveform */
-wave_properties_float_t wave_1[] = {
-	[0] = {.amplitude = 10,
-		   .offset = 0,
-		   .frequency = 0.005,
-		   .phase = 0,
-		   .function_type = FUNCTION_SINE_FLOAT},
-	[1] = {.amplitude = 10,
-		   .offset = 0,
-		   .frequency = 0.8,
-		   .phase = 0,
-		   .function_type = FUNCTION_SINE_FLOAT},
-	[2] = {.amplitude = 10,
-		   .offset = 0,
-		   .frequency = 5,
-		   .phase = 0,
-		   .function_type = FUNCTION_SINE_FLOAT},
-	//[3] = {.amplitude = 50, .offset = 0, .frequency = 100, .phase = 0,
-	//.function_type = FUNCTION_COS_FLOAT},
-};
-wave_settings_float_t wave_1_settings = {
-	.fs = SAMPLING_FREQUENCY,
-	.data_length = DATA_SIZE,
-	.dc_offset = 0,
-	.superposition = wave_1,
-	.num_superpositions = sizeof(wave_1) / sizeof(wave_1[0]),
-};
-/* End of waveform definition */
+void fprint_data(const char *filename, float *t, float *x,
+				 unsigned int data_length) {
+	/* Open the file and check it opened successfully, if not then exit */
+	FILE *file = fopen(filename, "w");
+	if (file == NULL) {
+		printf("Failed to open file %s, exiting\n", filename);
+		exit(EXIT_FAILURE);
+	}
+	/* Print the header */
+	fprintf(file, "Time,Amplitude\n");
+	/* Print the time data and waveform data to file */
+	for (int i = 0; i < data_length; i++) {
+		fprintf(file, "%f,%f\n", t[i], x[i]);
+	}
+	/* Close the file */
+	fclose(file);
+}
 
 int main() {
-	float t[DATA_SIZE];
-	float x[DATA_SIZE];
-	float y[DATA_SIZE];
+	/* Create the data and time arrays */
+	float *t = malloc(DATA_SIZE * sizeof(float));
+	float *data_in = malloc(DATA_SIZE * sizeof(float));
+	float *iir_simple_filtered_data = malloc(DATA_SIZE * sizeof(float));
+	float *iir_sos_filtered_data = malloc(DATA_SIZE * sizeof(float));
+	float *fir_filtered_data = malloc(DATA_SIZE * sizeof(float));
+	float *fir_decimation_filtered_data =
+		malloc((DATA_SIZE / DECIMATION_RATE) * sizeof(float));
 
-	/* Initialise the arrays to zero */
-	for (uint32_t i = 0; i < DATA_SIZE; i++) {
-		x[i] = 0;
-		y[i] = 0;
-	}
-
-	/* Generate time and data */
-	gen_time_float(t, DATA_SIZE, SAMPLING_FREQUENCY);
-	init_waveform_float(wave_1_settings, t, x);
+	/* Generate a spectrum for the input waveform */
+	printf("Generating test waveform.\n");
+	generate_spectrum_waveform_float(t, data_in, DATA_SIZE, SAMPLING_FREQUENCY,
+									 SPECTRUM_FREQUENCY_BINS,
+									 AMPLITUDE_SPECTRUM_FLAT);
 
 	/* Perform the filter */
+	printf("Performing filters against the input data.\n");
 	/* The data is sent through in chunks to simulate live data */
+	uint32_t start_index = 0;
 	for (uint32_t i = 0; i < DATA_CHUNK_COUNT; i++) {
-		uint32_t start_index = i * DATA_CHUNK_SIZE;
-		// iir_filter(&x[start_index], &y[start_index], &filt, DATA_CHUNK_SIZE);
-		sos_filter(&x[start_index], &y[start_index], &sos_filt,
+		/* Call each filter type */
+		iir_filter(&data_in[start_index],
+				   &iir_simple_filtered_data[start_index], &iir_filt,
 				   DATA_CHUNK_SIZE);
+		sos_filter(&data_in[start_index], &iir_sos_filtered_data[start_index],
+				   &sos_filt, DATA_CHUNK_SIZE);
+		fir_filter(&data_in[start_index], &fir_filtered_data[start_index],
+				   &fir_filt, DATA_CHUNK_SIZE);
+		fir_decimate(
+			&data_in[start_index],
+			&fir_decimation_filtered_data[start_index / DECIMATION_RATE],
+			&fir_decimation_filt, DATA_CHUNK_SIZE, DECIMATION_RATE);
+
+		/* Increment the start index */
+		start_index += DATA_CHUNK_SIZE;
 	}
-	/* Print out the data to file */
-	FILE *in_file = fopen(in_filename, "w");
+	printf("Filtering of data completed. Outputting all data to files.\n");
 
-	fprintf(in_file, "Time,Amplitude\n");
-	for (int i = 0; i < DATA_SIZE; i++) {
-		fprintf(in_file, "%f,%f\n", t[i], x[i]);
-	}
+	/* Print all data to file, including the data input */
+	fprint_data(in_filename, t, data_in, DATA_SIZE);
+	fprint_data(iir_simple_filename, t, iir_simple_filtered_data, DATA_SIZE);
+	fprint_data(iir_sos_filename, t, iir_sos_filtered_data, DATA_SIZE);
+	fprint_data(fir_filename, t, fir_filtered_data, DATA_SIZE);
+	fprint_data(fir_decimation_filename, t, fir_decimation_filtered_data,
+				DATA_SIZE / DECIMATION_RATE);
 
-	fclose(in_file);
-
-	FILE *out_file = fopen(out_filename, "w");
-	fprintf(out_file, "Time,Amplitude\n");
-	for (int i = 0; i < DATA_SIZE; i++) {
-		fprintf(out_file, "%f,%f\n", t[i], y[i]);
-	}
-
-	fclose(out_file);
+	/* Free the memory reserved for the data */
+	free(t);
+	free(data_in);
+	free(iir_simple_filtered_data);
+	free(iir_sos_filtered_data);
+	free(fir_filtered_data);
+	free(fir_decimation_filtered_data);
 
 	return 0;
 }

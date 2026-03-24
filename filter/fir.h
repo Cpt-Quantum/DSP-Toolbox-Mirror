@@ -17,6 +17,8 @@ struct fir_t {
 
 void fir_filter(float *data_in, float *data_out, struct fir_t *filter,
 				uint32_t length);
+void fir_decimate(float *data_in, float *data_out, struct fir_t *filter,
+				  uint32_t length, uint8_t decimation_rate);
 
 #ifdef __cplusplus
 }
