@@ -16,3 +16,10 @@ filter:
 
 debug: 
 	$(CC) $(CFLAGS) -g $(C_FILES) -o main.o $(LFLAGS)
+
+leak-check:
+	$(MAKE) debug
+	valgrind --leak-check=full \
+  	--show-leak-kinds=all \
+  	--track-origins=yes \
+  	./main.o
