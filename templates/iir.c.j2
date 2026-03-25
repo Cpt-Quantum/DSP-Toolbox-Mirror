@@ -1,14 +1,14 @@
-#include "iir.h"
+#include "iir_{{ type }}.h"
 
 #include <stdint.h>
 
-void iir_filter(float *data_in, float *data_out, struct iir_t *filter,
+void iir_filter_{{ type }}({{ type }} *data_in, {{ type }} *data_out, struct iir_{{ type }}_t *filter,
 				uint32_t length) {
 	uint8_t N = filter->taps;
 	uint32_t c, i, j;
 
 	for (j = 0; j < length; j++) {
-		data_out[j] = 0;
+		data_out[j] = ({{ type }})0;
 	}
 
 	for (c = 0; c < length; c++) {
@@ -33,12 +33,12 @@ void iir_filter(float *data_in, float *data_out, struct iir_t *filter,
 /* All biquad sections will have 3 coefficients on each denominator: */
 /* a0, a1, a2, b0, b1, b2 */
 #define BIQUAD_FILT_TAPS 3
-void biquad_section_filter(float *data_in, float *data_out,
-						   struct biquad_section_t *section, uint32_t length) {
+void biquad_section_filter_{{ type }}({{ type }} *data_in, {{ type }} *data_out,
+						   struct biquad_section_{{ type }}_t *section, uint32_t length) {
 	uint32_t c, i, j;
 
 	for (j = 0; j < length; j++) {
-		data_out[j] = 0;
+		data_out[j] = ({{ type }})0;
 	}
 
 	for (c = 0; c < length; c++) {
@@ -65,15 +65,15 @@ void biquad_section_filter(float *data_in, float *data_out,
 	section->cycle = (c + section->cycle) % BIQUAD_FILT_TAPS;
 }
 
-void sos_filter(float *data_in, float *data_out, struct sos_filter_t *filter,
+void sos_filter_{{ type }}({{ type }} *data_in, {{ type }} *data_out, struct sos_filter_{{ type }}_t *filter,
 				uint32_t length) {
 
-	float data_in_buff[32] = {0};
+	{{ type }} data_in_buff[32] = {({{ type }})0};
 	for (uint32_t i = 0; i < length; i++) {
 		data_in_buff[i] = data_in[i];
 	}
 	for (uint32_t i = 0; i < filter->num_sections; i++) {
-		biquad_section_filter(data_in_buff, data_out,
+		biquad_section_filter_{{ type }}(data_in_buff, data_out,
 							  &filter->biquad_section[i], length);
 		for (uint32_t j = 0; j < length; j++) {
 			data_in_buff[j] = data_out[j];

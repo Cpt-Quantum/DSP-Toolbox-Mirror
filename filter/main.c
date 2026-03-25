@@ -3,8 +3,8 @@
 #include <stdlib.h>
 
 #include "../inc/spectrum_gen_float.h"
-#include "fir.h"
-#include "iir.h"
+#include "fir_float.h"
+#include "iir_float.h"
 #include "main_inc.h"
 
 /* Define the filenames for the input data file and the output data file */
@@ -74,14 +74,15 @@ int main() {
 	uint32_t start_index = 0;
 	for (uint32_t i = 0; i < DATA_CHUNK_COUNT; i++) {
 		/* Call each filter type */
-		iir_filter(&data_in[start_index],
-				   &iir_simple_filtered_data[start_index], &iir_filt,
-				   DATA_CHUNK_SIZE);
-		sos_filter(&data_in[start_index], &iir_sos_filtered_data[start_index],
-				   &sos_filt, DATA_CHUNK_SIZE);
-		fir_filter(&data_in[start_index], &fir_filtered_data[start_index],
-				   &fir_filt, DATA_CHUNK_SIZE);
-		fir_decimate(
+		iir_filter_float(&data_in[start_index],
+						 &iir_simple_filtered_data[start_index], &iir_filt,
+						 DATA_CHUNK_SIZE);
+		sos_filter_float(&data_in[start_index],
+						 &iir_sos_filtered_data[start_index], &sos_filt,
+						 DATA_CHUNK_SIZE);
+		fir_filter_float(&data_in[start_index], &fir_filtered_data[start_index],
+						 &fir_filt, DATA_CHUNK_SIZE);
+		fir_decimate_float(
 			&data_in[start_index],
 			&fir_decimation_filtered_data[start_index / DECIMATION_RATE],
 			&fir_decimation_filt, DATA_CHUNK_SIZE, DECIMATION_RATE);

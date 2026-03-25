@@ -21,7 +21,7 @@ types_config = [
 ]
 
 # Templates and their output filename patterns
-templates = [
+inc_templates = [
     ("complex.h.j2", "complex_{type}.h"),
     ("complex.c.j2", "complex_{type}.c"),
     ("constants.h.j2", "constants_{type}.h"),
@@ -31,9 +31,15 @@ templates = [
     ("spectrum_gen.h.j2", "spectrum_gen_{type}.h"),
     ("spectrum_gen.c.j2", "spectrum_gen_{type}.c"),
 ]
+filter_templates = [
+    ("fir.h.j2", "fir_{type}.h"),
+    ("fir.c.j2", "fir_{type}.c"),
+    ("iir.h.j2", "iir_{type}.h"),
+    ("iir.c.j2", "iir_{type}.c"),
+]
 
 
-def generate():
+def generate(output_dir: str, templates: list):
     # Templates are in the 'templates' directory
     env = Environment(loader=FileSystemLoader("templates"))
 
@@ -45,7 +51,7 @@ def generate():
             try:
                 template = env.get_template(template_name)
                 output_name = output_pattern.format(type=config["type"])
-                output_path = os.path.join("inc", output_name)
+                output_path = os.path.join(output_dir, output_name)
 
                 print(f"Generating {output_path}...")
                 content = template.render(config)
@@ -56,4 +62,5 @@ def generate():
 
 
 if __name__ == "__main__":
-    generate()
+    generate("inc", inc_templates)
+    generate("filter", filter_templates)
