@@ -6,15 +6,9 @@ extern "C" {
 #endif
 
 #include "complex_{{ type }}.h"
+#include "waveform_gen_shared.h"
 #include <stdbool.h>
 #include <stdint.h>
-
-/* Enum type for setting what function should be used for a wave used as a */
-/* superposition. Used in the wave_properties_{{ type }}_t struct. */
-typedef enum {
-	FUNCTION_SINE_{{ type | upper }},
-	FUNCTION_COS_{{ type | upper }},
-} WAVEFORM_FUNC_{{ type | upper }}_E;
 
 /* Struct type for initialising an individual superposition wave as part of a */
 /* full waveform. Multiple structs can be passed of any number 0 to 255 to */
@@ -29,7 +23,7 @@ typedef struct {
 	{{ type }} offset;
 	{{ type }} frequency;
 	{{ type }} phase;
-	WAVEFORM_FUNC_{{ type | upper }}_E function_type;
+	WAVEFORM_FUNC_E function_type;
 } wave_properties_{{ type }}_t;
 
 /* Struct type for initialising a full waveform as a collection of individual */
