@@ -12,6 +12,12 @@ Although there is a python bindings folder, these are still a work in progress.
 Do not use them until more work has been done to fix these (pull requests
 welcome).
 
+# cJSON
+
+This project uses the cJSON library for parsing filters exported in JSON format.
+The license for this project doesn't apply to the files in cjson/, the original
+license from that project is included in that folder to avoid confusion.
+
 # jinja2 templates
 
 To make maintenance of the C implementations more easy, a lot of code is
