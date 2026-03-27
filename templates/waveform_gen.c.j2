@@ -84,10 +84,10 @@ void waveform_add_superposition_{{ type }}(wave_properties_{{ type }}_t wave_pro
 									   {{ type }} *t, {{ type }} *x,
 									   uint32_t data_length) {
 	switch (wave_properties.function_type) {
-	case FUNCTION_SINE_{{ type | upper }}:
+	case FUNCTION_SINE:
 		add_sin_{{ type }}(t, x, wave_properties, data_length);
 		break;
-	case FUNCTION_COS_{{ type | upper }}:
+	case FUNCTION_COS:
 		add_cos_{{ type }}(t, x, wave_properties, data_length);
 		break;
 	default:
@@ -99,11 +99,11 @@ void waveform_add_superposition_complex_{{ type }}(wave_properties_{{ type }}_t 
 								   complex_{{ type }}_t *x, bool write_real,
 								   bool write_imag, int32_t data_length) {
 	switch (wave_properties.function_type) {
-	case FUNCTION_SINE_{{ type | upper }}:
+	case FUNCTION_SINE:
 		add_sin_complex_{{ type }}(t, x, write_real, write_imag, wave_properties,
 						data_length);
 		break;
-	case FUNCTION_COS_{{ type | upper }}:
+	case FUNCTION_COS:
 		add_cos_complex_{{ type }}(t, x, write_real, write_imag, wave_properties,
 						data_length);
 		break;

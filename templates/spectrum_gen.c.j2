@@ -67,7 +67,7 @@ void generate_spectrum_waveform_{{ type }}({{ type }} *t, {{ type }} *x, uint32_
 		prop.offset = ({{ type }})0.0;
 		prop.frequency = freq;
 		prop.phase = ({{ type }})0.0;
-		prop.function_type = FUNCTION_SINE_{{ type | upper }};
+		prop.function_type = FUNCTION_SINE;
 
 		/* Add to the main waveform */
 		waveform_add_superposition_{{ type }}(prop, t, x, data_length);

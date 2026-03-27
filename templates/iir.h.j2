@@ -7,15 +7,9 @@ extern "C" {
 
 #include <stdint.h>
 
-struct iir_coeff_{{ type }}_t {
+struct iir_{{ type }}_t {
 	{{ type }} *a;
 	{{ type }} *b;
-};
-
-/* NB: May want to change this struct to instead point to a struct containing */
-/* a, b , in_buff and out_buff all in one structure. */
-struct iir_{{ type }}_t {
-	struct iir_coeff_{{ type }}_t *iir_coeff;
 	{{ type }} *in_buff, *out_buff;
 	uint16_t taps;
 	uint16_t cycle;

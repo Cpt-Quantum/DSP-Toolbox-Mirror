@@ -15,16 +15,16 @@ void iir_filter_{{ type }}({{ type }} *data_in, {{ type }} *data_out, struct iir
 		filter->in_buff[(c + filter->cycle) % N] = data_in[c];
 		for (i = 0; i < N; i++) {
 			data_out[c] = data_out[c] +
-						  (filter->iir_coeff->b[i] *
+						  (filter->b[i] *
 						   filter->in_buff[(c + filter->cycle - i + N) % N]);
 		}
 		for (i = 1; i < N; i++) {
 			data_out[c] = data_out[c] -
-						  (filter->iir_coeff->a[i] *
+						  (filter->a[i] *
 						   filter->out_buff[(c + filter->cycle - i + N) % N]);
 		}
 
-		data_out[c] = data_out[c] / filter->iir_coeff->a[0];
+		data_out[c] = data_out[c] / filter->a[0];
 		filter->out_buff[(c + filter->cycle) % N] = data_out[c];
 	}
 	filter->cycle = (c + filter->cycle) % N;
