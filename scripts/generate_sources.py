@@ -36,6 +36,8 @@ filter_templates = [
     ("fir.c.j2", "fir_{type}.c"),
     ("iir.h.j2", "iir_{type}.h"),
     ("iir.c.j2", "iir_{type}.c"),
+    ("json_to_filt.h.j2", "json_to_filt_{type}.h"),
+    ("json_to_filt.c.j2", "json_to_filt_{type}.c"),
 ]
 
 

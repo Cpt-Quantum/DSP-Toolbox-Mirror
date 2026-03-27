@@ -1,10 +1,11 @@
 # Shared variables
 RESULTS_DIR = results
 BIN_NAME = main.o
-MAIN_INC = main_inc
+FILTER_JSON = filters.json
 
 # C variables
 INC_DIR = ../inc
+CJSON_DIR = ../cjson
 CC = gcc
 CFLAGS = -Wall
 LFLAGS = -lm
@@ -12,7 +13,9 @@ LFLAGS = -lm
 C_FILES = main.c
 C_FILES += iir_float.c
 C_FILES += fir_float.c
-C_FILES += $(MAIN_INC).c
+C_FILES += main_inc.c
+C_FILES += json_to_filt_float.c
+C_FILES += $(CJSON_DIR)/cJSON.c
 C_FILES += $(INC_DIR)/waveform_gen_float.c
 C_FILES += $(INC_DIR)/spectrum_gen_float.c
 
@@ -31,13 +34,13 @@ PNG_FILES = $(FILTER_CSVS:.csv=.png)
 
 all: $(PNG_FILES)
 
-# Generate the filter design and C includes
-$(MAIN_INC):
+# Generate the filter design
+$(FILTER_JSON): $(FILTER_GEN_SCRIPT)
 	@echo "Generating the filter design outputs"
 	$(PYTHON) $(FILTER_GEN_SCRIPT)
 
 # Compile the C file
-$(BIN_NAME): $(C_FILES)
+$(BIN_NAME): $(C_FILES) $(FILTER_JSON)
 	@echo "Compiling C filter implementation..."
 	$(CC) $(CFLAGS) $(C_FILES) -o $(BIN_NAME) $(LFLAGS)
 
@@ -55,7 +58,7 @@ $(RESULTS_DIR)/%.mat $(RESULTS_DIR)/%.png: $(RESULTS_DIR)/%.csv $(INPUT_DATA) $(
 # Derived make rules depending on the rules above
 # C binary generation rules (filter gives normal binary, debug creates binary with debug symbols)
 filter: $(BIN_NAME)
-debug: 
+debug: $(C_FILES) $(FILTER_JSON)
 	$(CC) $(CFLAGS) -g $(C_FILES) -o $(BIN_NAME) $(LFLAGS)
 # Valgrind test rule for finding memory bugs
 leak-check:

@@ -1,0 +1,176 @@
+#include "../cjson/cJSON.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "fir_{{ type }}.h"
+#include "iir_{{ type }}.h"
+
+{{ type }} get_sample_rate_from_json_{{ type }}(cJSON *f_s_node) {
+	{{ type }} f_s = ({{ type }})0.0;
+	if (cJSON_IsNumber(f_s_node)) {
+		f_s = ({{ type }})f_s_node->valuedouble;
+		printf("Loaded sample rate: %.1f Hz\n", (double)f_s);
+	} else {
+		printf("Warning: 'f_s' not found or invalid. Defaulting to 16kHz\n");
+		f_s = ({{ type }})16000.0;
+	}
+	return f_s;
+}
+
+void init_fir_from_json_{{ type }}(struct fir_{{ type }}_t *filt, cJSON *fir_node) {
+	/* Check if the passed object is valid */
+	if (!cJSON_IsObject(fir_node)) {
+		printf("Error: Invalid FIR JSON node.\n");
+		return;
+	}
+	/* Parse the B coefficients */
+	cJSON *b_cjson = cJSON_GetObjectItem(fir_node, "b");
+	if (!cJSON_IsArray(b_cjson))
+		return;
+	/* Get the number of filter coefficients and initialise the cycle counter */
+	filt->taps = (uint16_t)cJSON_GetArraySize(b_cjson);
+	filt->cycle = 0;
+	/* Allocate memory for the B coefficients and the lookback buffer */
+	filt->b = ({{ type }} *)malloc(filt->taps * sizeof({{ type }}));
+	filt->in_buff = ({{ type }} *)calloc(filt->taps, sizeof({{ type }}));
+	/* Now use the parsed B coefficients into the C structure */
+	for (int i = 0; i < filt->taps; i++) {
+		cJSON *b_coeff = cJSON_GetArrayItem(b_cjson, i);
+		if (cJSON_IsNumber(b_coeff)) {
+			filt->b[i] = ({{ type }})b_coeff->valuedouble;
+		}
+	}
+	printf("Loaded an FIR filter from the input JSON file.\n");
+}
+
+void init_iir_from_json_{{ type }}(struct iir_{{ type }}_t *filt, cJSON *iir_node) {
+	/* Check if the passed object is valid */
+	if (!cJSON_IsObject(iir_node)) {
+		printf("Error: Invalid IIR JSON node.\n");
+		return;
+	}
+	/* Parse the A & B coefficients */
+	cJSON *a_cjson = cJSON_GetObjectItem(iir_node, "a");
+	cJSON *b_cjson = cJSON_GetObjectItem(iir_node, "b");
+	/* Validate that both sets of coefficients were found */
+	if (!cJSON_IsArray(b_cjson) || !cJSON_IsArray(a_cjson)) {
+		printf("Error: IIR filter JSON missing 'a' or 'b' arrays.\n");
+		return;
+	}
+	/* Check the same number of coefficients were parsed for A & B */
+	int b_taps = cJSON_GetArraySize(b_cjson);
+	int a_taps = cJSON_GetArraySize(a_cjson);
+	if (b_taps != a_taps) {
+		printf("Warning: 'a' (%d) and 'b' (%d) array lengths differ! Using the "
+			   "smaller size.\n",
+			   a_taps, b_taps);
+	}
+	/* Use the smaller number of coefficients if there was a mismatch, this
+	 * should never happen but this stops any error from causing issue
+	 * downstream in the filter logic. */
+	filt->taps = (uint16_t)(b_taps < a_taps ? b_taps : a_taps);
+	filt->cycle = 0;
+	/* Allocate the memory for the coefficient arrays */
+	filt->b = ({{ type }} *)malloc(filt->taps * sizeof({{ type }}));
+	filt->a = ({{ type }} *)malloc(filt->taps * sizeof({{ type }}));
+	/* Allocate (and zero) buffers for the lookback/feedback buffers */
+	filt->in_buff = ({{ type }} *)calloc(filt->taps, sizeof({{ type }}));
+	filt->out_buff = ({{ type }} *)calloc(filt->taps, sizeof({{ type }}));
+	/* Now use the parsed coefficients to set the C struct arrays */
+	for (int i = 0; i < filt->taps; i++) {
+		cJSON *b_coeff = cJSON_GetArrayItem(b_cjson, i);
+		cJSON *a_coeff = cJSON_GetArrayItem(a_cjson, i);
+		if (cJSON_IsNumber(b_coeff)) {
+			filt->b[i] = ({{ type }})b_coeff->valuedouble;
+		}
+		if (cJSON_IsNumber(a_coeff)) {
+			filt->a[i] = ({{ type }})a_coeff->valuedouble;
+		}
+	}
+	printf("Loaded an IIR filter from the input JSON file.\n");
+}
+
+void init_sos_from_json_{{ type }}(struct sos_filter_{{ type }}_t *filt, cJSON *sos_node) {
+	/* Check if the passed object is valid */
+	if (!cJSON_IsObject(sos_node))
+		return;
+	/* Parse the sections and gain from the JSON object */
+	cJSON *sections_arr = cJSON_GetObjectItem(sos_node, "sections");
+	cJSON *gain = cJSON_GetObjectItem(sos_node, "gain");
+	/* Validate that the second order sections were found */
+	if (!cJSON_IsArray(sections_arr))
+		return;
+	/* Get the number of second order sections and the gain (set the gain to 1
+	 * if not present) */
+	filt->num_sections = (uint16_t)cJSON_GetArraySize(sections_arr);
+	filt->gain = cJSON_IsNumber(gain) ? ({{ type }})gain->valuedouble : ({{ type }})1.0;
+	/* Allocate memory for the second order sections */
+	filt->biquad_section = (struct biquad_section_{{ type }}_t *)malloc(
+		filt->num_sections * sizeof(struct biquad_section_{{ type }}_t));
+	/* Now parse the JSON second order sections into the C structure */
+	for (int i = 0; i < filt->num_sections; i++) {
+		cJSON *section_json = cJSON_GetArrayItem(sections_arr, i);
+		if (cJSON_IsArray(section_json) &&
+			cJSON_GetArraySize(section_json) == 6) {
+			struct biquad_section_{{ type }}_t *section = &filt->biquad_section[i];
+
+			section->b[0] =
+				({{ type }})cJSON_GetArrayItem(section_json, 0)->valuedouble;
+			section->b[1] =
+				({{ type }})cJSON_GetArrayItem(section_json, 1)->valuedouble;
+			section->b[2] =
+				({{ type }})cJSON_GetArrayItem(section_json, 2)->valuedouble;
+			section->a[0] =
+				({{ type }})cJSON_GetArrayItem(section_json, 3)->valuedouble;
+			section->a[1] =
+				({{ type }})cJSON_GetArrayItem(section_json, 4)->valuedouble;
+			section->a[2] =
+				({{ type }})cJSON_GetArrayItem(section_json, 5)->valuedouble;
+
+			memset(section->in_buff, 0, sizeof(section->in_buff));
+			memset(section->out_buff, 0, sizeof(section->out_buff));
+			section->cycle = 0;
+		}
+	}
+	printf("Loaded an SOS filter from the input JSON file.\n");
+}
+
+/* Define a collection of free() functions to deal with clearing the malloced
+ * arrays */
+void free_fir_{{ type }}(struct fir_{{ type }}_t *filt) {
+	if (filt->b)
+		free(filt->b);
+	if (filt->in_buff)
+		free(filt->in_buff);
+
+	// Nullify pointers for safety
+	filt->b = NULL;
+	filt->in_buff = NULL;
+	filt->taps = 0;
+}
+
+void free_iir_{{ type }}(struct iir_{{ type }}_t *filt) {
+	if (filt->b)
+		free(filt->b);
+	if (filt->a)
+		free(filt->a);
+	if (filt->in_buff)
+		free(filt->in_buff);
+	if (filt->out_buff)
+		free(filt->out_buff);
+
+	filt->b = NULL;
+	filt->a = NULL;
+	filt->in_buff = NULL;
+	filt->out_buff = NULL;
+	filt->taps = 0;
+}
+
+void free_sos_{{ type }}(struct sos_filter_{{ type }}_t *filt) {
+	if (filt->biquad_section)
+		free(filt->biquad_section);
+
+	filt->biquad_section = NULL;
+	filt->num_sections = 0;
+}

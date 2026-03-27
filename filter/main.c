@@ -7,6 +7,7 @@
 #include "iir_float.h"
 #include "main_inc.h"
 
+const char filter_json_filename[] = "results/filters.json";
 /* Define the filenames for the input data file and the output data file */
 const char in_filename[] = "results/input_data.csv";
 const char iir_simple_filename[] = "results/iir_simple_data.csv";
@@ -22,7 +23,7 @@ const char fir_decimation_filename[] = "results/fir_decimation_data.csv";
  * the filters can be ran against a full long dataset. This just tests filter
  * behaviour in a real time processing environment. */
 #define DATA_CHUNK_SIZE 16
-#define DATA_CHUNK_COUNT (SAMPLING_FREQUENCY)
+#define DATA_CHUNK_COUNT (f_s)
 #define DATA_SIZE (DATA_CHUNK_SIZE * DATA_CHUNK_COUNT)
 
 void fprint_data(const char *filename, float *t, float *x,
@@ -53,6 +54,9 @@ void fprint_data(const char *filename, float *t, float *x,
 }
 
 int main() {
+	/* Initialise the filters */
+	filter_init(filter_json_filename);
+
 	/* Create the data and time arrays */
 	float *t = malloc(DATA_SIZE * sizeof(float));
 	float *data_in = malloc(DATA_SIZE * sizeof(float));
@@ -64,7 +68,7 @@ int main() {
 
 	/* Generate a spectrum for the input waveform */
 	printf("Generating test waveform.\n");
-	generate_spectrum_waveform_float(t, data_in, DATA_SIZE, SAMPLING_FREQUENCY,
+	generate_spectrum_waveform_float(t, data_in, DATA_SIZE, f_s,
 									 SPECTRUM_FREQUENCY_BINS,
 									 AMPLITUDE_SPECTRUM_FLAT);
 
@@ -107,6 +111,8 @@ int main() {
 	free(iir_sos_filtered_data);
 	free(fir_filtered_data);
 	free(fir_decimation_filtered_data);
+	/* Deinit the filters */
+	filter_deinit();
 
 	return 0;
 }

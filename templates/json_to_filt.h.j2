@@ -1,0 +1,17 @@
+#ifndef JSON_TO_FILT_{{ type | upper }}_H
+#define JSON_TO_FILT_{{ type | upper }}_H
+
+#include "../cjson/cJSON.h"
+#include "fir_{{ type }}.h"
+#include "iir_{{ type }}.h"
+
+{{ type }} get_sample_rate_from_json_{{ type }}(cJSON *f_s_node);
+void init_fir_from_json_{{ type }}(struct fir_{{ type }}_t *filt, cJSON *fir_node);
+void init_iir_from_json_{{ type }}(struct iir_{{ type }}_t *filt, cJSON *iir_node);
+void init_sos_from_json_{{ type }}(struct sos_filter_{{ type }}_t *filt, cJSON *sos_node);
+
+void free_fir_{{ type }}(struct fir_{{ type }}_t *filt);
+void free_iir_{{ type }}(struct iir_{{ type }}_t *filt);
+void free_sos_{{ type }}(struct sos_filter_{{ type }}_t *filt);
+
+#endif /* JSON_TO_FILT_{{ type | upper }}_H */

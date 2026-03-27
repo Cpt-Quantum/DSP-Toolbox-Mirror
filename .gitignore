@@ -9,6 +9,8 @@ filter/fir_*.c
 filter/fir_*.h
 filter/iir_*.c
 filter/iir_*.h
+filter/json_to_filt_*.c
+filter/json_to_filt_*.h
 inc/complex_*.c
 inc/complex_*.h
 inc/constants_*.c
@@ -18,3 +20,4 @@ inc/spectrum_gen_*.h
 !inc/spectrum_gen_shared.h
 inc/waveform_gen_*.c
 inc/waveform_gen_*.h
+!inc/waveform_gen_shared.h
