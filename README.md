@@ -1,3 +1,7 @@
+# DSP Toolbox
+
+![FIR filtered data example](example_filter.png)
+
 This repository contains a collection of tools that aid in the development and
 design of signal processing algorithms. There are filter implementations in C
 that allow FIR/IIR filters to be calculated against floats, doubles and
