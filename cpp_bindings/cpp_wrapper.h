@@ -48,8 +48,8 @@ template <typename num_t> class waveform_t {
 
 template <typename wave_properties_t, typename num_t> class waveform_x {
   private:
-	vector<wave_properties_t> wave_properties;
 	unsigned int wave_length;
+	vector<wave_properties_t> wave_properties;
 
 	/* Create private member functions that will be selected based on num_t */
 	inline void waveform_add_superposition(wave_properties_t wave_properties,
@@ -116,9 +116,7 @@ template <typename wave_properties_t, typename num_t> class waveform_x {
 		gen_spectrum_type(t.data(), x.data(), length, f_s, num_steps, profile);
 	};
 	/* Constructors/destructors */
-	waveform_x(unsigned int _wave_length) {
-		/* Set the internal variables */
-		wave_length = _wave_length;
+	waveform_x(unsigned int _wave_length) : wave_length(_wave_length) {
 		/* Setup the vector for storing the data elements */
 		x.resize(_wave_length);
 	};
