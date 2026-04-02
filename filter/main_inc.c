@@ -1,4 +1,6 @@
 #include "main_inc.h"
+#include "../cjson/cJSON.h"
+#include "../cjson/cJSON_helpers.h"
 #include "json_to_filt_float.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -11,30 +13,9 @@ struct iir_float_t iir_filt;
 struct fir_float_t fir_filt;
 struct fir_float_t fir_decimation_filt;
 
-/* Function to read full file into one string */
-char *read_file(const char *filename) {
-	/* Open the file */
-	FILE *f = fopen(filename, "r");
-	if (f == NULL) {
-		return NULL;
-	}
-	/* Find the total file length */
-	fseek(f, 0, SEEK_END);
-	uint64_t length = ftell(f);
-	/* Reset to the start of the file and malloc the required space */
-	fseek(f, 0, SEEK_SET);
-	char *data = malloc(length + 1);
-	/* Now read the file into the string and add the termination character */
-	fread(data, 1, length, f);
-	data[length] = '\0';
-	/* Close the file and return the string */
-	fclose(f);
-	return data;
-}
-
 void filter_init(const char *filename) {
 	/* Parse the file into the cJSON object */
-	char *json_string = read_file(filename);
+	char *json_string = cJSON_read_file(filename);
 	if (json_string == NULL) {
 		printf("Error: Failed to read file.\n");
 		exit(EXIT_FAILURE);

@@ -16,6 +16,7 @@ C_FILES += fir_float.c
 C_FILES += main_inc.c
 C_FILES += json_to_filt_float.c
 C_FILES += $(CJSON_DIR)/cJSON.c
+C_FILES += $(CJSON_DIR)/cJSON_helpers.c
 C_FILES += $(INC_DIR)/waveform_gen_float.c
 C_FILES += $(INC_DIR)/spectrum_gen_float.c
 
