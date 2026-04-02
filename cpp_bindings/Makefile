@@ -1,5 +1,16 @@
+# Shared parameters for the decimation test
+SAMPLE_RATE = 16000
+N_CHANNELS = 288 #256+32
+N_TAPS = 32
+DECIMATION_RATE = 4
+INPUT_BIN = "results/input_data.bin"
+OUTPUT_BIN = "results/decimated_data.bin"
+
+# C parameters
 CC = g++
-CFLAGS = -Wall -g
+CFLAGS = -Wall -O3
+CFLAGS += -DF_S=$(SAMPLE_RATE) -DN_CHANNELS=$(N_CHANNELS)
+CFLAGS += -DN_TAPS=$(N_TAPS) -DDECIMATION=$(DECIMATION_RATE)
 
 C_SRC += ../inc/constants_float.c
 C_SRC += ../inc/complex_float.c
@@ -23,10 +34,19 @@ C_SRC += ../filter/json_to_filt_int32_t.c
 
 LINKER_FLAGS = -lm
 
-test:
-	$(CC) $(CFLAGS) test.cpp $(C_SRC) -o test.o $(LINKER_FLAGS)
+# Python parameters
+PY = python3
+PY_DATA_COMPARE_FILE = data_compare.py
+PY_DATA_COMPARE_ARGS = --channels $(N_CHANNELS) --taps $(N_TAPS)
+PY_DATA_COMPARE_ARGS += --decimation $(DECIMATION_RATE)
+PY_DATA_COMPARE_ARGS += --input $(INPUT_BIN) --output $(OUTPUT_BIN)
+
 decimation:
 	$(CC) $(CFLAGS) decimation_test.cpp $(C_SRC) -o decimation_test.o $(LINKER_FLAGS)
 
+run_all: decimation
+	./decimation_test.o
+	$(PY) $(PY_DATA_COMPARE_FILE) $(PY_DATA_COMPARE_ARGS)
 clean:
 	rm *.o
+	rm results/*.bin

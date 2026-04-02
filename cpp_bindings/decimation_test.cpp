@@ -8,10 +8,21 @@
 using namespace std;
 
 /* Define data constants */
-#define F_S (16000)
-#define N_CHANNELS (256 + 32)
+/* Use Makefile flags, or fall back to defaults if compiled manually */
+#ifndef F_S
+#define F_S 16000
+#endif
+#ifndef N_CHANNELS
+#define N_CHANNELS 288
+#endif
+#ifndef N_TAPS
+#define N_TAPS 32
+#endif
+#ifndef DECIMATION_RATE
 #define DECIMATION_RATE 4
-#define N_TAPS (32)
+#endif
+/* These constants are only used in the C++ program so aren't specified in the
+ * makefile */
 #define CHUNK_SIZE N_TAPS
 #define N_CHUNKS 2000
 #define DATA_LENGTH (CHUNK_SIZE * N_CHUNKS)
