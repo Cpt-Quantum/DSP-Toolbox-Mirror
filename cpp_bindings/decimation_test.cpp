@@ -1,3 +1,7 @@
+#ifndef CPP_WRAPPER_H
+#define CPP_WRAPPER_H
+
+#include "cpp_data_io.h"
 #include "cpp_wrapper.h"
 #include <chrono>
 #include <fstream>
@@ -28,74 +32,36 @@ using namespace std;
 #define DATA_LENGTH (CHUNK_SIZE * N_CHUNKS)
 #define FREQ_BINS 200
 
-class data_filter {
+template <typename num_t> class data_filter {
   private:
-	string ifilename;
-	unsigned int sample_rate;
-	unsigned int wave_length;
-	unsigned int freq_bins;
-	unsigned int n_channels;
 	unsigned int chunk_size;
+	unsigned int n_channels;
 	unsigned int n_chunks;
+	unsigned int sample_rate;
 
-	waveform_t<float> t;
+	waveform_t<num_t> t;
+	data_io<num_t> data;
 
   public:
 	/* Constructor */
-	data_filter(string _ifilename, unsigned int _sample_rate,
-				unsigned int _wave_length, unsigned int _freq_bins,
-				unsigned int _n_channels, unsigned int _chunk_size)
-		: ifilename(_ifilename), sample_rate(_sample_rate),
-		  wave_length(_wave_length), freq_bins(_freq_bins),
-		  n_channels(_n_channels), chunk_size(_chunk_size),
-		  t(_sample_rate, _wave_length) {
-		n_chunks = wave_length / chunk_size;
+	data_filter(string _ifilename, string _ofilename, unsigned int _chunk_size,
+				unsigned int _freq_bins, unsigned int _n_channels,
+				unsigned int _sample_rate, unsigned int _wave_length)
+		: chunk_size(_chunk_size), n_channels(_n_channels),
+		  sample_rate(_sample_rate), t(_sample_rate, _wave_length),
+		  data(_ifilename, _ofilename, _chunk_size, _freq_bins, _n_channels,
+			   _sample_rate, _wave_length) {
+		n_chunks = _wave_length / chunk_size;
 	};
-	/* Function to create the input waveforms and dump to a binary file for
-	 * loading later in the program */
-	uint8_t generate_input_bin_file() {
-		cout << "Generating input data binary file" << endl;
-		/* Open the output file */
-		fstream in_file_wr{ifilename, in_file_wr.out | in_file_wr.binary};
-		if (!in_file_wr.is_open()) {
-			cout
-				<< "Failed to open input data file for writing, exiting program"
-				<< endl;
-			return -1;
-		}
-		/* Preallocate the file size */
-		in_file_wr.seekp(
-			(size_t)(n_chunks * n_channels * chunk_size * sizeof(float) - 1));
-		in_file_wr.write("", 1);
-		/* Setup the channels and print them to file */
-		for (int i = 0; i < N_CHANNELS; i++) {
-			waveform_x<float> x(wave_length);
-			x.gen_spectrum(t.t, wave_length, sample_rate, freq_bins,
-						   AMPLITUDE_SPECTRUM_FLAT);
-			/* The binary file output is grouped into chunks for each channel,
-			 * rather than storing each channel contiguously. This drastically
-			 * improves performance when filtering there data, as that is done
-			 * per chunk. */
-			for (unsigned int j = 0; j < n_chunks; j++) {
-				size_t element_start_index =
-					(j * n_channels * chunk_size) + (i * chunk_size);
-				streampos byte_offset = element_start_index * sizeof(float);
-				/* Seek to the offset */
-				in_file_wr.seekp(byte_offset, ios::beg);
-				/* Write the chunk to file */
-				in_file_wr.write((const char *)&x.x[j * chunk_size],
-								 chunk_size * sizeof(float));
-			}
-		}
-		/* Close the file */
-		in_file_wr.close();
-		return 0;
-	}
+	/* Wrapper function to expose any needed functions from data_io */
+	unsigned int generate_input_file() { return data.generate_input_file(); }
+	bool input_data_exists() { return data.input_data_exists(); }
 	/* Function to filter the input data and work out performance of the code */
 	void run_benchmark(const string &json_filename,
 					   const string &output_filename, uint8_t decimation_rate) {
-		cout << "Loading FIR filter from " << json_filename << "..." << endl;
 
+		/* Create the filter objects */
+		cout << "Loading FIR filter from " << json_filename << "..." << endl;
 		json_filter_parse json_object(json_filename);
 		fir<float> ref_filt(json_object.get_node("fir"));
 
@@ -105,15 +71,13 @@ class data_filter {
 			channel_filters.push_back(ref_filt);
 		}
 
-		/* Open input for reading, and output for writing */
-		ifstream in_file_rd(ifilename, ios::in | ios::binary);
-		ofstream out_file_wr(output_filename, ios::out | ios::binary);
-
-		if (!in_file_rd.is_open() || !out_file_wr.is_open()) {
-			cout << "Failed to open input or output data files." << endl;
+		/* Open the input and output data files */
+		if (!data.open_streams()) {
+			cout << "Failed to open input/output data files." << endl;
 			return;
 		}
 
+		/* Set up the data chunk arrays */
 		vector<float> input_chunk(chunk_size);
 		unsigned int out_chunk_size = chunk_size / decimation_rate;
 		vector<float> output_chunk(out_chunk_size);
@@ -128,28 +92,27 @@ class data_filter {
 			bool eof_reached = false;
 
 			for (unsigned int ch = 0; ch < n_channels; ++ch) {
-				// 1. Read Input
-				if (!in_file_rd.read((char *)input_chunk.data(),
-									 chunk_size * sizeof(float))) {
+				/* Read input from binary file */
+				if (!data.read_chunk(input_chunk, chunk_size)) {
 					eof_reached = true;
 					break;
 				}
 
-				// 2. Start Timer (Strictly compute)
+				/* Start timer for benchmarking only around computation section
+				 */
 				auto start = chrono::high_resolution_clock::now();
 
 				channel_filters[ch].fir_decimate(input_chunk, output_chunk,
 												 chunk_size, decimation_rate);
 
-				// 3. Stop Timer
+				/* Stop the benchmarking timer */
 				auto end = chrono::high_resolution_clock::now();
 				total_compute_microseconds +=
 					chrono::duration_cast<chrono::microseconds>(end - start)
 						.count();
 
-				// 4. Write Output (Outside the timer!)
-				out_file_wr.write((const char *)output_chunk.data(),
-								  out_chunk_size * sizeof(float));
+				/* Write the output to file */
+				data.write_chunk(output_chunk, out_chunk_size);
 			}
 
 			if (eof_reached)
@@ -157,10 +120,10 @@ class data_filter {
 			chunks_processed++;
 		}
 
-		in_file_rd.close();
-		out_file_wr.close();
+		/* Close the input and output files */
+		data.close_streams();
 
-		/* --- Display Results --- */
+		/* Print out benchmark results */
 		double total_time_sec = total_compute_microseconds / 1000000.0;
 		double simulated_data_sec =
 			(double)(chunks_processed * chunk_size) / sample_rate;
@@ -194,14 +157,24 @@ const string json_filename("fir.json");
 
 int main(void) {
 	/* Create the class that handles the file IO */
-	data_filter eeg(input_filename, F_S, DATA_LENGTH, FREQ_BINS, N_CHANNELS,
-					CHUNK_SIZE);
-	if (eeg.generate_input_bin_file() != 0) {
-		return -1;
+	data_filter<float> eeg(input_filename, output_filename, CHUNK_SIZE,
+						   FREQ_BINS, N_CHANNELS, F_S, DATA_LENGTH);
+
+	/* Only generate data if there isn't a file already generated */
+	bool input_data_exists = eeg.input_data_exists();
+	if (input_data_exists) {
+		cout << "Input data file found in: " << input_filename
+			 << ", skipping data generation step." << endl;
+	} else {
+		if (eeg.generate_input_file() != 0) {
+			return -1;
+		}
 	}
 
-	/* Run the benchmark (assuming a decimation rate of 2 for this example) */
+	/* Run the benchmark */
 	eeg.run_benchmark(json_filename, output_filename, DECIMATION_RATE);
 
 	return 0;
 }
+
+#endif /* CPP_WRAPPER_H */

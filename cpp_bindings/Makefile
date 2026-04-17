@@ -42,11 +42,11 @@ PY_DATA_COMPARE_ARGS += --decimation $(DECIMATION_RATE)
 PY_DATA_COMPARE_ARGS += --input $(INPUT_BIN) --output $(OUTPUT_BIN)
 
 decimation:
-	$(CC) $(CFLAGS) decimation_test.cpp $(C_SRC) -o decimation_test.o $(LINKER_FLAGS)
+	$(CC) $(CFLAGS) decimation_test.cpp $(C_SRC) -o decimation_test $(LINKER_FLAGS)
 
 run_all: decimation
-	./decimation_test.o
+	./decimation_test
 	$(PY) $(PY_DATA_COMPARE_FILE) $(PY_DATA_COMPARE_ARGS)
 clean:
-	rm *.o
+	rm decimation_test
 	rm results/*.bin
