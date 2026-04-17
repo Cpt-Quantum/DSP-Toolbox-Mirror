@@ -151,3 +151,35 @@ void init_waveform_complex_{{ type.suffix }}(wave_settings_complex_{{ type.suffi
 		x[i].imag += wave_settings.dc_offset.imag;
 	}
 }
+
+void scale_waveform_{{ type.suffix }}({{ type.name }} *x, {{ type.name }} scale_factor, uint32_t length) {
+	for (uint32_t i = 0; i < length; i++) {
+		x[i] *= scale_factor;
+	}
+}
+
+void divide_waveform_{{ type.suffix }}({{ type.name }} *x, {{ type.name }} scale_factor, uint32_t length) {
+	if (scale_factor == ({{ type.name }})0) {
+		return;
+	}
+	for (uint32_t i = 0; i < length; i++) {
+		x[i] /= scale_factor;
+	}
+}
+
+void scale_waveform_complex_{{ type.suffix }}(complex_{{ type.suffix }}_t *x, {{ type.name }} scale_factor, uint32_t length) {
+	for (uint32_t i = 0; i < length; i++) {
+		x[i].real *= scale_factor;
+		x[i].imag *= scale_factor;
+	}
+}
+
+void divide_waveform_complex_{{ type.suffix }}(complex_{{ type.suffix }}_t *x, {{ type.name }} scale_factor, uint32_t length) {
+	if (scale_factor == ({{ type.name }})0) {
+		return;
+	}
+	for (uint32_t i = 0; i < length; i++) {
+		x[i].real /= scale_factor;
+		x[i].imag /= scale_factor;
+	}
+}

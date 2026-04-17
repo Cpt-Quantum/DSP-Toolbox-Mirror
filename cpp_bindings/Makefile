@@ -47,6 +47,7 @@ decimation:
 run_all: decimation
 	./decimation_test
 	$(PY) $(PY_DATA_COMPARE_FILE) $(PY_DATA_COMPARE_ARGS)
+
 clean:
 	rm decimation_test
 	rm results/*.bin

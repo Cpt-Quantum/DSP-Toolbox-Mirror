@@ -129,6 +129,31 @@ void init_waveform_{{ type.suffix }}(wave_settings_{{ type.suffix }}_t wave_sett
 void init_waveform_complex_{{ type.suffix }}(wave_settings_complex_{{ type.suffix }}_t wave_settings, {{ type.name }} *t,
 						   complex_{{ type.suffix }}_t *x);
 
+/* Post-processing functions */
+/* scale_waveform: Multiplies all values in the provided array by a scale factor. */
+/* x: The data buffer to scale */
+/* scale_factor: The factor to multiply by */
+/* length: The length of the array */
+void scale_waveform_{{ type.suffix }}({{ type.name }} *x, {{ type.name }} scale_factor, uint32_t length);
+
+/* divide_waveform: Divides all values in the provided array by a scale factor. */
+/* x: The data buffer to scale */
+/* scale_factor: The factor to divide by */
+/* length: The length of the array */
+void divide_waveform_{{ type.suffix }}({{ type.name }} *x, {{ type.name }} scale_factor, uint32_t length);
+
+/* scale_waveform_complex: Multiplies all values in the provided complex array by a scale factor. */
+/* x: The data buffer to scale */
+/* scale_factor: The factor to multiply by */
+/* length: The length of the array */
+void scale_waveform_complex_{{ type.suffix }}(complex_{{ type.suffix }}_t *x, {{ type.name }} scale_factor, uint32_t length);
+
+/* divide_waveform_complex: Divides all values in the provided complex array by a scale factor. */
+/* x: The data buffer to scale */
+/* scale_factor: The factor to divide by */
+/* length: The length of the array */
+void divide_waveform_complex_{{ type.suffix }}(complex_{{ type.suffix }}_t *x, {{ type.name }} scale_factor, uint32_t length);
+
 #ifdef __cplusplus
 }
 #endif

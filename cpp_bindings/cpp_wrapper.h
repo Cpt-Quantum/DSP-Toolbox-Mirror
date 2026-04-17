@@ -62,6 +62,12 @@ template <> struct waveform_traits<float> {
 									AMPLITUDE_SPECTRUM_E profile, float base_amplitude, float noise_variance) {
 		generate_spectrum_waveform_float(t, y, len, f_s, num_steps, profile, base_amplitude, noise_variance);
 	}
+	static inline void scale(float *x, float factor, uint32_t len) {
+		scale_waveform_float(x, factor, len);
+	}
+	static inline void divide(float *x, float factor, uint32_t len) {
+		divide_waveform_float(x, factor, len);
+	}
 };
 /* Double Specialization */
 template <> struct waveform_traits<double> {
@@ -76,6 +82,12 @@ template <> struct waveform_traits<double> {
 									AMPLITUDE_SPECTRUM_E profile, double base_amplitude, double noise_variance) {
 		generate_spectrum_waveform_double(t, y, len, f_s, num_steps, profile, base_amplitude, noise_variance);
 	}
+	static inline void scale(double *x, double factor, uint32_t len) {
+		scale_waveform_double(x, factor, len);
+	}
+	static inline void divide(double *x, double factor, uint32_t len) {
+		divide_waveform_double(x, factor, len);
+	}
 };
 /* Int32 Specialization */
 template <> struct waveform_traits<int32_t> {
@@ -89,6 +101,12 @@ template <> struct waveform_traits<int32_t> {
 									uint32_t f_s, uint32_t num_steps,
 									AMPLITUDE_SPECTRUM_E profile, int32_t base_amplitude, int32_t noise_variance) {
 		generate_spectrum_waveform_int32(t, y, len, f_s, num_steps, profile, base_amplitude, noise_variance);
+	}
+	static inline void scale(int32_t *x, int32_t factor, uint32_t len) {
+		scale_waveform_int32(x, factor, len);
+	}
+	static inline void divide(int32_t *x, int32_t factor, uint32_t len) {
+		divide_waveform_int32(x, factor, len);
 	}
 };
 /* Waveform creation/storage wrapper class */
@@ -128,6 +146,8 @@ template <typename num_t> class waveform_x {
 		traits::gen_spectrum(t.data(), x.data(), length, f_s, num_steps,
 							 profile, base_amplitude, noise_variance);
 	};
+	void scale(num_t factor) { traits::scale(x.data(), factor, wave_length); }
+	void divide(num_t factor) { traits::divide(x.data(), factor, wave_length); }
 };
 
 /* Wrapper class around the JSON parsing functions */
