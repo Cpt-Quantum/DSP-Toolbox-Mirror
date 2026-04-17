@@ -1,8 +1,8 @@
 #include <stdint.h>
 
-#include "fir_{{ type }}.h"
+#include "fir_{{ type.suffix }}.h"
 
-void fir_filter_{{ type }}({{ type }} *data_in, {{ type }} *data_out, struct fir_{{ type }}_t *filter,
+void fir_filter_{{ type.suffix }}({{ type.name }} *data_in, {{ type.name }} *data_out, struct fir_{{ type.suffix }}_t *filter,
 				uint32_t length) {
 	uint8_t N = filter->taps;
 	/* Create index variables:
@@ -13,7 +13,7 @@ void fir_filter_{{ type }}({{ type }} *data_in, {{ type }} *data_out, struct fir
 	uint32_t c, i;
 
 	for (i = 0; i < length; i++) {
-		data_out[i] = ({{ type }})0;
+		data_out[i] = ({{ type.name }})0;
 	}
 
 	for (c = 0; c < length; c++) {
@@ -27,7 +27,7 @@ void fir_filter_{{ type }}({{ type }} *data_in, {{ type }} *data_out, struct fir
 	filter->cycle = (c + filter->cycle) % N;
 }
 
-void fir_decimate_{{ type }}({{ type }} *data_in, {{ type }} *data_out, struct fir_{{ type }}_t *filter,
+void fir_decimate_{{ type.suffix }}({{ type.name }} *data_in, {{ type.name }} *data_out, struct fir_{{ type.suffix }}_t *filter,
 				  uint32_t length, uint8_t decimation_rate) {
 	uint8_t N = filter->taps;
 	/* Create index variables:
@@ -38,7 +38,7 @@ void fir_decimate_{{ type }}({{ type }} *data_in, {{ type }} *data_out, struct f
 	uint32_t c, i, j;
 
 	for (i = 0; i < length / decimation_rate; i++) {
-		data_out[i] = ({{ type }})0;
+		data_out[i] = ({{ type.name }})0;
 	}
 
 	j = 0;

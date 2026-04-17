@@ -2,109 +2,109 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "complex_{{ type }}.h"
-#include "constants_{{ type }}.h"
-#include "waveform_gen_{{ type }}.h"
+#include "complex_{{ type.suffix }}.h"
+#include "constants_{{ type.suffix }}.h"
+#include "waveform_gen_{{ type.suffix }}.h"
 
-void gen_time_{{ type }}({{ type }} *t, uint32_t length, uint32_t sample_freq) {
+void gen_time_{{ type.suffix }}({{ type.name }} *t, uint32_t length, uint32_t sample_freq) {
 	for (uint32_t i = 0; i < length; i++) {
-		t[i] = (({{ type }})i) / sample_freq;
+		t[i] = (({{ type.name }})i) / sample_freq;
 	}
 }
 
-void gen_freq_{{ type }}({{ type }} *f, uint32_t length, uint32_t sample_freq) {
+void gen_freq_{{ type.suffix }}({{ type.name }} *f, uint32_t length, uint32_t sample_freq) {
 	for (uint32_t i = 0; i < length; i++) {
-		f[i] = ({{ type }})0.5 * (({{ type }})i) * sample_freq / length;
+		f[i] = ({{ type.name }})0.5 * (({{ type.name }})i) * sample_freq / length;
 	}
 }
 
 /* Real valued function variants */
-void add_sin_{{ type }}({{ type }} *t, {{ type }} *x, wave_properties_{{ type }}_t wave_properties,
+void add_sin_{{ type.suffix }}({{ type.name }} *t, {{ type.name }} *x, wave_properties_{{ type.suffix }}_t wave_properties,
 			 uint32_t length) {
 	for (uint32_t i = 0; i < length; i++) {
 		x[i] = x[i] + wave_properties.offset +
-			   wave_properties.amplitude *
-				   {{ math_prefix }}sin{{ math_suffix }}((double)6.28318530717958647692 * (double)wave_properties.frequency * (double)t[i] +
-						(double)6.28318530717958647692 * (double)wave_properties.phase);
+			   {{ type.math_prefix }}((double)wave_properties.amplitude *
+				   sin{{ type.math_suffix }}((double)6.28318530717958647692 * (double)wave_properties.frequency * (double)t[i] +
+						(double)6.28318530717958647692 * (double)wave_properties.phase));
 	}
 }
 
-void add_cos_{{ type }}({{ type }} *t, {{ type }} *x, wave_properties_{{ type }}_t wave_properties,
+void add_cos_{{ type.suffix }}({{ type.name }} *t, {{ type.name }} *x, wave_properties_{{ type.suffix }}_t wave_properties,
 			 uint32_t length) {
 	for (uint32_t i = 0; i < length; i++) {
 		x[i] = x[i] + wave_properties.offset +
-			   wave_properties.amplitude *
-				   {{ math_prefix }}cos{{ math_suffix }}((double)6.28318530717958647692 * (double)wave_properties.frequency * (double)t[i] +
-						(double)6.28318530717958647692 * (double)wave_properties.phase);
+			   {{ type.math_prefix }}((double)wave_properties.amplitude *
+				   cos{{ type.math_suffix }}((double)6.28318530717958647692 * (double)wave_properties.frequency * (double)t[i] +
+						(double)6.28318530717958647692 * (double)wave_properties.phase));
 	}
 }
 
 /* Complex valued function variants */
-void add_sin_complex_{{ type }}({{ type }} *t, complex_{{ type }}_t *x, bool write_real, bool write_imag,
-					 wave_properties_{{ type }}_t wave_properties, uint32_t length) {
+void add_sin_complex_{{ type.suffix }}({{ type.name }} *t, complex_{{ type.suffix }}_t *x, bool write_real, bool write_imag,
+					 wave_properties_{{ type.suffix }}_t wave_properties, uint32_t length) {
 	if (write_real) {
 		for (uint32_t i = 0; i < length; i++) {
 			x[i].real = x[i].real + wave_properties.offset +
-						wave_properties.amplitude *
-							{{ math_prefix }}sin{{ math_suffix }}((double)6.28318530717958647692 * (double)wave_properties.frequency * (double)t[i] +
-								 (double)6.28318530717958647692 * (double)wave_properties.phase);
+						{{ type.math_prefix }}((double)wave_properties.amplitude *
+							sin{{ type.math_suffix }}((double)6.28318530717958647692 * (double)wave_properties.frequency * (double)t[i] +
+								 (double)6.28318530717958647692 * (double)wave_properties.phase));
 		}
 	}
 	if (write_imag) {
 		for (uint32_t i = 0; i < length; i++) {
 			x[i].imag = x[i].imag + wave_properties.offset +
-						wave_properties.amplitude *
-							{{ math_prefix }}sin{{ math_suffix }}((double)6.28318530717958647692 * (double)wave_properties.frequency * (double)t[i] +
-								 (double)6.28318530717958647692 * (double)wave_properties.phase);
+						{{ type.math_prefix }}((double)wave_properties.amplitude *
+							sin{{ type.math_suffix }}((double)6.28318530717958647692 * (double)wave_properties.frequency * (double)t[i] +
+								 (double)6.28318530717958647692 * (double)wave_properties.phase));
 		}
 	}
 }
 
-void add_cos_complex_{{ type }}({{ type }} *t, complex_{{ type }}_t *x, bool write_real, bool write_imag,
-					 wave_properties_{{ type }}_t wave_properties, uint32_t length) {
+void add_cos_complex_{{ type.suffix }}({{ type.name }} *t, complex_{{ type.suffix }}_t *x, bool write_real, bool write_imag,
+					 wave_properties_{{ type.suffix }}_t wave_properties, uint32_t length) {
 	if (write_real) {
 		for (uint32_t i = 0; i < length; i++) {
 			x[i].real = x[i].real + wave_properties.offset +
-						wave_properties.amplitude *
-							{{ math_prefix }}cos{{ math_suffix }}((double)6.28318530717958647692 * (double)wave_properties.frequency * (double)t[i] +
-								 (double)6.28318530717958647692 * (double)wave_properties.phase);
+						{{ type.math_prefix }}((double)wave_properties.amplitude *
+							cos{{ type.math_suffix }}((double)6.28318530717958647692 * (double)wave_properties.frequency * (double)t[i] +
+								 (double)6.28318530717958647692 * (double)wave_properties.phase));
 		}
 	}
 	if (write_imag) {
 		for (uint32_t i = 0; i < length; i++) {
 			x[i].imag = x[i].imag + wave_properties.offset +
-						wave_properties.amplitude *
-							{{ math_prefix }}cos{{ math_suffix }}((double)6.28318530717958647692 * (double)wave_properties.frequency * (double)t[i] +
-								 (double)6.28318530717958647692 * (double)wave_properties.phase);
+						{{ type.math_prefix }}((double)wave_properties.amplitude *
+							cos{{ type.math_suffix }}((double)6.28318530717958647692 * (double)wave_properties.frequency * (double)t[i] +
+								 (double)6.28318530717958647692 * (double)wave_properties.phase));
 		}
 	}
 }
 
-void waveform_add_superposition_{{ type }}(wave_properties_{{ type }}_t wave_properties,
-									   {{ type }} *t, {{ type }} *x,
+void waveform_add_superposition_{{ type.suffix }}(wave_properties_{{ type.suffix }}_t wave_properties,
+									   {{ type.name }} *t, {{ type.name }} *x,
 									   uint32_t data_length) {
 	switch (wave_properties.function_type) {
 	case FUNCTION_SINE:
-		add_sin_{{ type }}(t, x, wave_properties, data_length);
+		add_sin_{{ type.suffix }}(t, x, wave_properties, data_length);
 		break;
 	case FUNCTION_COS:
-		add_cos_{{ type }}(t, x, wave_properties, data_length);
+		add_cos_{{ type.suffix }}(t, x, wave_properties, data_length);
 		break;
 	default:
 		break;
 	}
 }
 
-void waveform_add_superposition_complex_{{ type }}(wave_properties_{{ type }}_t wave_properties, {{ type }} *t,
-								   complex_{{ type }}_t *x, bool write_real,
+void waveform_add_superposition_complex_{{ type.suffix }}(wave_properties_{{ type.suffix }}_t wave_properties, {{ type.name }} *t,
+								   complex_{{ type.suffix }}_t *x, bool write_real,
 								   bool write_imag, int32_t data_length) {
 	switch (wave_properties.function_type) {
 	case FUNCTION_SINE:
-		add_sin_complex_{{ type }}(t, x, write_real, write_imag, wave_properties,
+		add_sin_complex_{{ type.suffix }}(t, x, write_real, write_imag, wave_properties,
 						data_length);
 		break;
 	case FUNCTION_COS:
-		add_cos_complex_{{ type }}(t, x, write_real, write_imag, wave_properties,
+		add_cos_complex_{{ type.suffix }}(t, x, write_real, write_imag, wave_properties,
 						data_length);
 		break;
 	default:
@@ -112,12 +112,12 @@ void waveform_add_superposition_complex_{{ type }}(wave_properties_{{ type }}_t 
 	}
 }
 
-void init_waveform_{{ type }}(wave_settings_{{ type }}_t wave_settings, {{ type }} *t, {{ type }} *x) {
+void init_waveform_{{ type.suffix }}(wave_settings_{{ type.suffix }}_t wave_settings, {{ type.name }} *t, {{ type.name }} *x) {
 	/* Generate the time according to settings first */
-	gen_time_{{ type }}(t, wave_settings.data_length, wave_settings.fs);
+	gen_time_{{ type.suffix }}(t, wave_settings.data_length, wave_settings.fs);
 	/* Now generate the main waveform */
 	for (uint8_t i = 0; i < wave_settings.num_superpositions; i++) {
-		waveform_add_superposition_{{ type }}(wave_settings.superposition[i], t, x,
+		waveform_add_superposition_{{ type.suffix }}(wave_settings.superposition[i], t, x,
 								   wave_settings.data_length);
 	}
 	/* Add in the DC offset for the signal */
@@ -126,21 +126,21 @@ void init_waveform_{{ type }}(wave_settings_{{ type }}_t wave_settings, {{ type 
 	}
 }
 
-void init_waveform_complex_{{ type }}(wave_settings_complex_{{ type }}_t wave_settings, {{ type }} *t,
-						   complex_{{ type }}_t *x) {
+void init_waveform_complex_{{ type.suffix }}(wave_settings_complex_{{ type.suffix }}_t wave_settings, {{ type.name }} *t,
+						   complex_{{ type.suffix }}_t *x) {
 	/* Generate the time according to settings first */
-	gen_time_{{ type }}(t, wave_settings.data_length, wave_settings.fs);
+	gen_time_{{ type.suffix }}(t, wave_settings.data_length, wave_settings.fs);
 	/* Now generate the main waveform */
 	for (uint8_t i = 0; i < wave_settings.num_superpositions; i++) {
 		/* Add to the real parts based on the waveform settings */
 		if (wave_settings.superposition_real) {
-			waveform_add_superposition_complex_{{ type }}(wave_settings.superposition_real[i],
+			waveform_add_superposition_complex_{{ type.suffix }}(wave_settings.superposition_real[i],
 										   t, x, true, false,
 										   wave_settings.data_length);
 		}
 		/* Add to the imaginary parts based on the waveform settings */
 		if (wave_settings.superposition_imag) {
-			waveform_add_superposition_complex_{{ type }}(wave_settings.superposition_imag[i],
+			waveform_add_superposition_complex_{{ type.suffix }}(wave_settings.superposition_imag[i],
 										   t, x, false, true,
 										   wave_settings.data_length);
 		}

@@ -1,5 +1,5 @@
-#ifndef FIR_{{ type | upper }}_H
-#define FIR_{{ type | upper }}_H
+#ifndef FIR_{{ type.suffix | upper }}_H
+#define FIR_{{ type.suffix | upper }}_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -8,20 +8,20 @@ extern "C" {
 #include <math.h>
 #include <stdint.h>
 
-struct fir_{{ type }}_t {
-	{{ type }} *b;
-	{{ type }} *in_buff;
+struct fir_{{ type.suffix }}_t {
+	{{ type.name }} *b;
+	{{ type.name }} *in_buff;
 	uint16_t taps;
 	uint16_t cycle;
 };
 
-void fir_filter_{{ type }}({{ type }} *data_in, {{ type }} *data_out, struct fir_{{ type }}_t *filter,
+void fir_filter_{{ type.suffix }}({{ type.name }} *data_in, {{ type.name }} *data_out, struct fir_{{ type.suffix }}_t *filter,
 				uint32_t length);
-void fir_decimate_{{ type }}({{ type }} *data_in, {{ type }} *data_out, struct fir_{{ type }}_t *filter,
+void fir_decimate_{{ type.suffix }}({{ type.name }} *data_in, {{ type.name }} *data_out, struct fir_{{ type.suffix }}_t *filter,
 				  uint32_t length, uint8_t decimation_rate);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* FIR_{{ type | upper }}_H */
+#endif /* FIR_{{ type.suffix | upper }}_H */

@@ -1,30 +1,30 @@
-#ifndef WAVEFORM_GEN_{{ type | upper }}_H
-#define WAVEFORM_GEN_{{ type | upper }}_H
+#ifndef WAVEFORM_GEN_{{ type.suffix | upper }}_H
+#define WAVEFORM_GEN_{{ type.suffix | upper }}_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "complex_{{ type }}.h"
+#include "complex_{{ type.suffix }}.h"
 #include "waveform_gen_shared.h"
 #include <stdbool.h>
 #include <stdint.h>
 
 /* Struct type for initialising an individual superposition wave as part of a */
 /* full waveform. Multiple structs can be passed of any number 0 to 255 to */
-/* wave_settings_{{ type }}_t struct. They will all be added into the waveform when the */
-/* init_waveform_{{ type }}() function is called. */
+/* wave_settings_{{ type.suffix }}_t struct. They will all be added into the waveform when the */
+/* init_waveform_{{ type.suffix }}() function is called. */
 /* amplitude: Sets the superposition wave's amplitude */
 /* offset: Sets the superposition wave's DC offset */
 /* frequency: Sets the superposition wave's frequency */
 /* function_type: Sets the function to use for the superposition wave */
 typedef struct {
-	{{ type }} amplitude;
-	{{ type }} offset;
-	{{ type }} frequency;
-	{{ type }} phase;
+	{{ type.name }} amplitude;
+	{{ type.name }} offset;
+	{{ type.name }} frequency;
+	{{ type.name }} phase;
 	WAVEFORM_FUNC_E function_type;
-} wave_properties_{{ type }}_t;
+} wave_properties_{{ type.suffix }}_t;
 
 /* Struct type for initialising a full waveform as a collection of individual */
 /* superposition waves set by the *superposition member. */
@@ -38,10 +38,10 @@ typedef struct {
 typedef struct {
 	uint32_t fs;
 	uint32_t data_length;
-	{{ type }} dc_offset;
-	wave_properties_{{ type }}_t *superposition;
+	{{ type.name }} dc_offset;
+	wave_properties_{{ type.suffix }}_t *superposition;
 	uint8_t num_superpositions;
-} wave_settings_{{ type }}_t;
+} wave_settings_{{ type.suffix }}_t;
 
 /* Struct type for initialising a full waveform as a collection of individual */
 /* superposition waves set by the *superposition member. */
@@ -56,23 +56,23 @@ typedef struct {
 typedef struct {
 	uint32_t fs;
 	uint32_t data_length;
-	complex_{{ type }}_t dc_offset;
-	wave_properties_{{ type }}_t *superposition_real;
-	wave_properties_{{ type }}_t *superposition_imag;
+	complex_{{ type.suffix }}_t dc_offset;
+	wave_properties_{{ type.suffix }}_t *superposition_real;
+	wave_properties_{{ type.suffix }}_t *superposition_imag;
 	uint8_t num_superpositions;
-} wave_settings_complex_{{ type }}_t;
+} wave_settings_complex_{{ type.suffix }}_t;
 
 /* Function for generating time information */
 /* t: The buffer to set the time of */
 /* length: The length of the time buffer */
 /* sample_freq: The sampling frequency for the waveform */
-void gen_time_{{ type }}({{ type }} *t, uint32_t length, uint32_t sample_freq);
+void gen_time_{{ type.suffix }}({{ type.name }} *t, uint32_t length, uint32_t sample_freq);
 
 /* Function for generation frequency information */
 /* f: The buffer the frequencies are placed into */
 /* length: The length of the frequency buffer */
 /* sample_freq: The sampling frequency of the waveform */
-void gen_freq_{{ type }}({{ type }} *f, uint32_t length, uint32_t sample_freq);
+void gen_freq_{{ type.suffix }}({{ type.name }} *f, uint32_t length, uint32_t sample_freq);
 
 /* The following functions add sine and cosine waveforms to a pre-existing    */
 /* data buffer. This function is defined for use with purely real data.       */
@@ -80,9 +80,9 @@ void gen_freq_{{ type }}({{ type }} *f, uint32_t length, uint32_t sample_freq);
 /* x: The data buffer to add the sine/cosine wave to */
 /* wave_properties: The struct containing all desired properties for the */
 /* waveform to be added. */
-void add_sin_{{ type }}({{ type }} *t, {{ type }} *x, wave_properties_{{ type }}_t wave_properties,
+void add_sin_{{ type.suffix }}({{ type.name }} *t, {{ type.name }} *x, wave_properties_{{ type.suffix }}_t wave_properties,
 			 uint32_t length);
-void add_cos_{{ type }}({{ type }} *t, {{ type }} *x, wave_properties_{{ type }}_t wave_properties,
+void add_cos_{{ type.suffix }}({{ type.name }} *t, {{ type.name }} *x, wave_properties_{{ type.suffix }}_t wave_properties,
 			 uint32_t length);
 
 /* The following functions add sine and cosine waveforms to a pre-existing    */
@@ -93,10 +93,10 @@ void add_cos_{{ type }}({{ type }} *t, {{ type }} *x, wave_properties_{{ type }}
 /* write_imag: Sets whether the function adds to the imaginary part */
 /* wave_properties: The struct containing all desired properties for the */
 /* waveform to be added. */
-void add_sin_complex_{{ type }}({{ type }} *t, complex_{{ type }}_t *x, bool write_real, bool write_imag,
-					 wave_properties_{{ type }}_t wave_properties, uint32_t length);
-void add_cos_complex_{{ type }}({{ type }} *t, complex_{{ type }}_t *x, bool write_real, bool write_imag,
-					 wave_properties_{{ type }}_t wave_properties, uint32_t length);
+void add_sin_complex_{{ type.suffix }}({{ type.name }} *t, complex_{{ type.suffix }}_t *x, bool write_real, bool write_imag,
+					 wave_properties_{{ type.suffix }}_t wave_properties, uint32_t length);
+void add_cos_complex_{{ type.suffix }}({{ type.name }} *t, complex_{{ type.suffix }}_t *x, bool write_real, bool write_imag,
+					 wave_properties_{{ type.suffix }}_t wave_properties, uint32_t length);
 
 /* The following functions act as look up tables to call the correct function
  * for adding a wave to the waveform based on the passed wave_properties object.
@@ -108,10 +108,10 @@ void add_cos_complex_{{ type }}({{ type }} *t, complex_{{ type }}_t *x, bool wri
 /* Complex function only parameters: */
 /* write_real: Sets whether the function adds to the real part */
 /* write_imag: Sets whether the function adds to the imaginary part */
-void waveform_add_superposition_{{ type }}(wave_properties_{{ type }}_t wave_properties, {{ type }} *t,
-								{{ type }} *x, uint32_t data_length);
-void waveform_add_superposition_complex_{{ type }}(wave_properties_{{ type }}_t wave_properties,
-										{{ type }} *t, complex_{{ type }}_t *x, bool write_real,
+void waveform_add_superposition_{{ type.suffix }}(wave_properties_{{ type.suffix }}_t wave_properties, {{ type.name }} *t,
+								{{ type.name }} *x, uint32_t data_length);
+void waveform_add_superposition_complex_{{ type.suffix }}(wave_properties_{{ type.suffix }}_t wave_properties,
+										{{ type.name }} *t, complex_{{ type.suffix }}_t *x, bool write_real,
 										bool write_imag, int32_t data_length);
 
 /* Initialises the waveform based on the pass wave_settings */
@@ -119,18 +119,18 @@ void waveform_add_superposition_complex_{{ type }}(wave_properties_{{ type }}_t 
 /* initialisation. */
 /* *t: pointer to the time array */
 /* *x: pointer to the waveform array */
-void init_waveform_{{ type }}(wave_settings_{{ type }}_t wave_settings, {{ type }} *t, {{ type }} *x);
+void init_waveform_{{ type.suffix }}(wave_settings_{{ type.suffix }}_t wave_settings, {{ type.name }} *t, {{ type.name }} *x);
 
 /* Initialises a complex waveform based on the passed wave_settings */
 /* wave_settings: Struct containing all of the wave settings required for */
 /* initialisation. */
 /* *t: pointer to the time array */
 /* *t: pointer to the waveform array */
-void init_waveform_complex_{{ type }}(wave_settings_complex_{{ type }}_t wave_settings, {{ type }} *t,
-						   complex_{{ type }}_t *x);
+void init_waveform_complex_{{ type.suffix }}(wave_settings_complex_{{ type.suffix }}_t wave_settings, {{ type.name }} *t,
+						   complex_{{ type.suffix }}_t *x);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // WAVEFORM_GEN_{{ type | upper }}_H
+#endif // WAVEFORM_GEN_{{ type.suffix | upper }}_H

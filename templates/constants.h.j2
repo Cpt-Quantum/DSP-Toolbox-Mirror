@@ -1,15 +1,15 @@
-#ifndef CONSTANTS_{{ type | upper }}_H
-#define CONSTANTS_{{ type | upper }}_H
+#ifndef CONSTANTS_{{ type.suffix | upper }}_H
+#define CONSTANTS_{{ type.suffix | upper }}_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern const {{ type }} pi_{{ type }};
-extern const {{ type }} pi2_{{ type }};
+extern const {{ type.name }} pi_{{ type.suffix }};
+extern const {{ type.name }} pi2_{{ type.suffix }};
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // CONSTANTS_{{ type | upper }}_H
+#endif // CONSTANTS_{{ type.suffix | upper }}_H

@@ -4,17 +4,20 @@ from jinja2 import Environment, FileSystemLoader
 # Configuration for different types
 types_config = [
     {
-        "type": "float",
+        "name": "float",
+        "suffix": "float",
         "math_suffix": "f",
         "math_prefix": "",
     },
     {
-        "type": "double",
+        "name": "double",
+        "suffix": "double",
         "math_suffix": "",
         "math_prefix": "",
     },
     {
-        "type": "int32_t",
+        "name": "int32_t",
+        "suffix": "int32",
         "math_suffix": "f",  # Use float math for generation
         "math_prefix": "(int32_t)",  # Cast result back to int32_t
     },
@@ -52,11 +55,11 @@ def generate(output_dir: str, templates: list):
         for template_name, output_pattern in templates:
             try:
                 template = env.get_template(template_name)
-                output_name = output_pattern.format(type=config["type"])
+                output_name = output_pattern.format(type=config["suffix"])
                 output_path = os.path.join(output_dir, output_name)
 
                 print(f"Generating {output_path}...")
-                content = template.render(config)
+                content = template.render(type=config)
                 with open(output_path, "w") as f:
                     f.write(content)
             except Exception as e:

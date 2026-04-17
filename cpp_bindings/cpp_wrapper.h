@@ -5,20 +5,20 @@
 #include "../cjson/cJSON_helpers.h"
 #include "../filter/fir_double.h"
 #include "../filter/fir_float.h"
-#include "../filter/fir_int32_t.h"
+#include "../filter/fir_int32.h"
 #include "../filter/iir_double.h"
 #include "../filter/iir_float.h"
-#include "../filter/iir_int32_t.h"
+#include "../filter/iir_int32.h"
 #include "../filter/json_to_filt_double.h"
 #include "../filter/json_to_filt_float.h"
-#include "../filter/json_to_filt_int32_t.h"
+#include "../filter/json_to_filt_int32.h"
 #include "../inc/spectrum_gen_double.h"
 #include "../inc/spectrum_gen_float.h"
-#include "../inc/spectrum_gen_int32_t.h"
+#include "../inc/spectrum_gen_int32.h"
 #include "../inc/spectrum_gen_shared.h"
 #include "../inc/waveform_gen_double.h"
 #include "../inc/waveform_gen_float.h"
-#include "../inc/waveform_gen_int32_t.h"
+#include "../inc/waveform_gen_int32.h"
 #include "../inc/waveform_gen_shared.h"
 
 #include <cstdint>
@@ -79,16 +79,16 @@ template <> struct waveform_traits<double> {
 };
 /* Int32 Specialization */
 template <> struct waveform_traits<int32_t> {
-	using props_type = wave_properties_int32_t_t;
+	using props_type = wave_properties_int32_t;
 
 	static inline void add_superposition(props_type props, int32_t *t,
 										 int32_t *y, std::size_t len) {
-		waveform_add_superposition_int32_t(props, t, y, len);
+		waveform_add_superposition_int32(props, t, y, len);
 	}
 	static inline void gen_spectrum(int32_t *t, int32_t *y, std::size_t len,
 									uint32_t f_s, uint32_t num_steps,
 									AMPLITUDE_SPECTRUM_E profile) {
-		generate_spectrum_waveform_int32_t(t, y, len, f_s, num_steps, profile);
+		generate_spectrum_waveform_int32(t, y, len, f_s, num_steps, profile);
 	}
 };
 /* Waveform creation/storage wrapper class */
@@ -221,20 +221,20 @@ template <> struct fir_traits<double> {
 };
 /* Int32 Specialization */
 template <> struct fir_traits<int32_t> {
-	using struct_type = fir_int32_t_t;
+	using struct_type = fir_int32_t;
 
 	static inline void filter(int32_t *data_in, int32_t *data_out,
 							  struct_type *filt, uint32_t len) {
-		fir_filter_int32_t(data_in, data_out, filt, len);
+		fir_filter_int32(data_in, data_out, filt, len);
 	}
 	static inline void decimate(int32_t *data_in, int32_t *data_out,
 								struct_type *filt, uint32_t len, uint8_t rate) {
-		fir_decimate_int32_t(data_in, data_out, filt, len, rate);
+		fir_decimate_int32(data_in, data_out, filt, len, rate);
 	}
 	static inline void create(struct_type *filt, cJSON *node) {
-		init_fir_from_json_int32_t(filt, node);
+		init_fir_from_json_int32(filt, node);
 	}
-	static inline void free(struct_type *filt) { free_fir_int32_t(filt); }
+	static inline void free(struct_type *filt) { free_fir_int32(filt); }
 };
 /* FIR wrapper class */
 template <typename num_t> class fir {
@@ -359,16 +359,16 @@ template <> struct iir_traits<double> {
 };
 /* Int32 Specialization */
 template <> struct iir_traits<int32_t> {
-	using struct_type = iir_int32_t_t;
+	using struct_type = iir_int32_t;
 
 	static inline void filter(int32_t *data_in, int32_t *data_out,
 							  struct_type *filt, uint32_t len) {
-		iir_filter_int32_t(data_in, data_out, filt, len);
+		iir_filter_int32(data_in, data_out, filt, len);
 	}
 	static inline void create(struct_type *filt, cJSON *node) {
-		init_iir_from_json_int32_t(filt, node);
+		init_iir_from_json_int32(filt, node);
 	}
-	static inline void free(struct_type *filt) { free_iir_int32_t(filt); }
+	static inline void free(struct_type *filt) { free_iir_int32(filt); }
 };
 /* IIR (direct form) wrapper class */
 template <typename num_t> class iir_ba {
@@ -501,17 +501,17 @@ template <> struct sos_traits<double> {
 };
 /* Int32 Specialization */
 template <> struct sos_traits<int32_t> {
-	using struct_type = sos_filter_int32_t_t;
-	using biquad_type = biquad_section_int32_t_t;
+	using struct_type = sos_filter_int32_t;
+	using biquad_type = biquad_section_int32_t;
 
 	static inline void filter(int32_t *data_in, int32_t *data_out,
 							  struct_type *filt, uint32_t len) {
-		sos_filter_int32_t(data_in, data_out, filt, len);
+		sos_filter_int32(data_in, data_out, filt, len);
 	}
 	static inline void create(struct_type *filt, cJSON *node) {
-		init_sos_from_json_int32_t(filt, node);
+		init_sos_from_json_int32(filt, node);
 	}
-	static inline void free(struct_type *filt) { free_sos_int32_t(filt); }
+	static inline void free(struct_type *filt) { free_sos_int32(filt); }
 };
 /* IIR (SOS) wrapper class */
 template <typename num_t> class iir_sos {

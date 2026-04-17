@@ -1,75 +1,75 @@
-#include "spectrum_gen_{{ type }}.h"
+#include "spectrum_gen_{{ type.suffix }}.h"
 #include <math.h>
 
-void generate_spectrum_waveform_{{ type }}({{ type }} *t, {{ type }} *x, uint32_t data_length, uint32_t sample_rate, uint32_t num_steps, AMPLITUDE_SPECTRUM_E profile) {
+void generate_spectrum_waveform_{{ type.suffix }}({{ type.name }} *t, {{ type.name }} *x, uint32_t data_length, uint32_t sample_rate, uint32_t num_steps, AMPLITUDE_SPECTRUM_E profile) {
 	/* Generate the time array */
-	gen_time_{{ type }}(t, data_length, sample_rate);
+	gen_time_{{ type.suffix }}(t, data_length, sample_rate);
 
 	/* Clear the output buffer */
 	for (uint32_t i = 0; i < data_length; i++) {
-		x[i] = ({{ type }})0.0;
+		x[i] = ({{ type.name }})0.0;
 	}
 
-	{{ type }} nyquist = (({{ type }})sample_rate) / ({{ type }})2.0;
-	{{ type }} freq_step = nyquist / (({{ type }})num_steps);
+	{{ type.name }} nyquist = (({{ type.name }})sample_rate) / ({{ type.name }})2.0;
+	{{ type.name }} freq_step = nyquist / (({{ type.name }})num_steps);
 
 	for (uint32_t step = 1; step <= num_steps; step++) {
-		{{ type }} freq = (({{ type }})step) * freq_step;
+		{{ type.name }} freq = (({{ type.name }})step) * freq_step;
 		
 		/* r normalizes the position in the frequency sweep from 0.0 to 1.0 */
-		{{ type }} r = (({{ type }})step) / (({{ type }})num_steps);
-		{{ type }} amplitude = ({{ type }})1.0;
+		double r = (double)step / (double)num_steps;
+		{{ type.name }} amplitude = ({{ type.name }})1.0;
 
 		/* Apply mathematically pure test curves */
 		switch (profile) {
 			case AMPLITUDE_SPECTRUM_FLAT:
-				amplitude = ({{ type }})1.0;
+				amplitude = ({{ type.name }})1.0;
 				break;
 
 			case AMPLITUDE_SPECTRUM_LOW_DECAY:
 				/* Starts at 0, smoothly rises to 1.0 (High-Pass test) */
-				amplitude = ({{ type }})1.0 - {{ type.math_prefix }}exp(-({{ type }})5.0 * r);
+				amplitude = {{ type.math_prefix }}(1.0 - exp{{ type.math_suffix }}(-5.0 * r));
 				break;
 
 			case AMPLITUDE_SPECTRUM_HIGH_DECAY:
 				/* Stays near 1.0, smoothly drops to 0 at the tail (Low-Pass test) */
-				amplitude = ({{ type }})1.0 - {{ type.math_prefix }}exp(({{ type }})5.0 * (r - ({{ type }})1.0));
+				amplitude = {{ type.math_prefix }}(1.0 - exp{{ type.math_suffix }}(5.0 * (r - 1.0)));
 				break;
 
 			case AMPLITUDE_SPECTRUM_BANDPASS:
 				/* Gaussian bell curve centered at r = 0.5 */
-				amplitude = {{ type.math_prefix }}exp(-({{ type }})25.0 * (r - ({{ type }})0.5) * (r - ({{ type }})0.5));
+				amplitude = {{ type.math_prefix }}exp{{ type.math_suffix }}(-25.0 * (r - 0.5) * (r - 0.5));
 				break;
 
 			case AMPLITUDE_SPECTRUM_BANDSTOP:
 				/* Inverse Gaussian notch centered at r = 0.5 */
-				amplitude = ({{ type }})1.0 - {{ type.math_prefix }}exp(-({{ type }})25.0 * (r - ({{ type }})0.5) * (r - ({{ type }})0.5));
+				amplitude = {{ type.math_prefix }}(1.0 - exp{{ type.math_suffix }}(-25.0 * (r - 0.5) * (r - 0.5)));
 				break;
 
 			case AMPLITUDE_SPECTRUM_LOW_BOOST:
 				/* Starts at 2.0, drops smoothly to 1.0 */
-				amplitude = ({{ type }})1.0 + {{ type.math_prefix }}exp(-({{ type }})10.0 * r);
+				amplitude = {{ type.math_prefix }}(1.0 + exp{{ type.math_suffix }}(-10.0 * r));
 				break;
 
 			case AMPLITUDE_SPECTRUM_HIGH_BOOST:
 				/* Stays near 1.0, rises smoothly to 2.0 at the tail */
-				amplitude = ({{ type }})1.0 + {{ type.math_prefix }}exp(({{ type }})10.0 * (r - ({{ type }})1.0));
+				amplitude = {{ type.math_prefix }}(1.0 + exp{{ type.math_suffix }}(10.0 * (r - 1.0)));
 				break;
 
 			default:
-				amplitude = ({{ type }})1.0;
+				amplitude = ({{ type.name }})1.0;
 				break;
 		}
 
 		/* Set properties for this frequency bin */
-		wave_properties_{{ type }}_t prop;
+		wave_properties_{{ type.suffix }}_t prop;
 		prop.amplitude = amplitude;
-		prop.offset = ({{ type }})0.0;
+		prop.offset = ({{ type.name }})0.0;
 		prop.frequency = freq;
-		prop.phase = ({{ type }})0.0;
+		prop.phase = ({{ type.name }})0.0;
 		prop.function_type = FUNCTION_SINE;
 
 		/* Add to the main waveform */
-		waveform_add_superposition_{{ type }}(prop, t, x, data_length);
+		waveform_add_superposition_{{ type.suffix }}(prop, t, x, data_length);
 	}
 }

@@ -1,5 +1,5 @@
-#ifndef IIR_{{ type | upper }}_H
-#define IIR_{{ type | upper }}_H
+#ifndef IIR_{{ type.suffix | upper }}_H
+#define IIR_{{ type.suffix | upper }}_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -7,33 +7,33 @@ extern "C" {
 
 #include <stdint.h>
 
-struct iir_{{ type }}_t {
-	{{ type }} *a;
-	{{ type }} *b;
-	{{ type }} *in_buff, *out_buff;
+struct iir_{{ type.suffix }}_t {
+	{{ type.name }} *a;
+	{{ type.name }} *b;
+	{{ type.name }} *in_buff, *out_buff;
 	uint16_t taps;
 	uint16_t cycle;
 };
 
 /* Definitions for IIR filters in biquad/second order sections format */
-struct biquad_section_{{ type }}_t {
-	{{ type }} a[3], b[3];
-	{{ type }} in_buff[3], out_buff[3];
+struct biquad_section_{{ type.suffix }}_t {
+	{{ type.name }} a[3], b[3];
+	{{ type.name }} in_buff[3], out_buff[3];
 	uint16_t cycle;
 };
-struct sos_filter_{{ type }}_t {
-	struct biquad_section_{{ type }}_t *biquad_section;
+struct sos_filter_{{ type.suffix }}_t {
+	struct biquad_section_{{ type.suffix }}_t *biquad_section;
 	uint16_t num_sections;
-	{{ type }} gain;
+	{{ type.name }} gain;
 };
 
-void iir_filter_{{ type }}({{ type }} *data_in, {{ type }} *data_out, struct iir_{{ type }}_t *filter,
+void iir_filter_{{ type.suffix }}({{ type.name }} *data_in, {{ type.name }} *data_out, struct iir_{{ type.suffix }}_t *filter,
 				uint32_t length);
-void sos_filter_{{ type }}({{ type }} *data_in, {{ type }} *data_out,
-				struct sos_filter_{{ type }}_t *sos_filter, uint32_t length);
+void sos_filter_{{ type.suffix }}({{ type.name }} *data_in, {{ type.name }} *data_out,
+				struct sos_filter_{{ type.suffix }}_t *sos_filter, uint32_t length);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* IIR_{{ type | upper }}_H */
+#endif /* IIR_{{ type.suffix | upper }}_H */
