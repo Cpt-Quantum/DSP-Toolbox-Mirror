@@ -27,8 +27,6 @@ types_config = [
 inc_templates = [
     ("complex.h.j2", "complex_{type}.h"),
     ("complex.c.j2", "complex_{type}.c"),
-    ("constants.h.j2", "constants_{type}.h"),
-    ("constants.c.j2", "constants_{type}.c"),
     ("waveform_gen.h.j2", "waveform_gen_{type}.h"),
     ("waveform_gen.c.j2", "waveform_gen_{type}.c"),
     ("spectrum_gen.h.j2", "spectrum_gen_{type}.h"),
