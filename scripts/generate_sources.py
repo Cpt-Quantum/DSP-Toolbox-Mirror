@@ -7,13 +7,13 @@ types_config = [
         "name": "float",
         "suffix": "float",
         "math_suffix": "f",
-        "math_prefix": "",
+        "math_prefix": "(float)",
     },
     {
         "name": "double",
         "suffix": "double",
         "math_suffix": "",
-        "math_prefix": "",
+        "math_prefix": "(double)",
     },
     {
         "name": "int32_t",

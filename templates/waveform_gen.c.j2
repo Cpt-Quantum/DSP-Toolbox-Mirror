@@ -23,9 +23,9 @@ void add_sin_{{ type.suffix }}({{ type.name }} *t, {{ type.name }} *x, wave_prop
 			 uint32_t length) {
 	for (uint32_t i = 0; i < length; i++) {
 		x[i] = x[i] + wave_properties.offset +
-			   {{ type.math_prefix }}((double)wave_properties.amplitude *
-				   sin{{ type.math_suffix }}((double)6.28318530717958647692 * (double)wave_properties.frequency * (double)t[i] +
-						(double)6.28318530717958647692 * (double)wave_properties.phase));
+			   {{ type.math_prefix }}({{ type.math_prefix }}wave_properties.amplitude *
+				   sin{{ type.math_suffix }}({{ type.math_prefix }}6.28318530717958647692 * {{ type.math_prefix }}wave_properties.frequency * {{ type.math_prefix }}t[i] +
+						{{ type.math_prefix }}6.28318530717958647692 * {{ type.math_prefix }}wave_properties.phase));
 	}
 }
 
@@ -33,9 +33,9 @@ void add_cos_{{ type.suffix }}({{ type.name }} *t, {{ type.name }} *x, wave_prop
 			 uint32_t length) {
 	for (uint32_t i = 0; i < length; i++) {
 		x[i] = x[i] + wave_properties.offset +
-			   {{ type.math_prefix }}((double)wave_properties.amplitude *
-				   cos{{ type.math_suffix }}((double)6.28318530717958647692 * (double)wave_properties.frequency * (double)t[i] +
-						(double)6.28318530717958647692 * (double)wave_properties.phase));
+			   {{ type.math_prefix }}({{ type.math_prefix }}wave_properties.amplitude *
+				   cos{{ type.math_suffix }}({{ type.math_prefix }}6.28318530717958647692 * {{ type.math_prefix }}wave_properties.frequency * {{ type.math_prefix }}t[i] +
+						{{ type.math_prefix }}6.28318530717958647692 * {{ type.math_prefix }}wave_properties.phase));
 	}
 }
 
@@ -45,17 +45,17 @@ void add_sin_complex_{{ type.suffix }}({{ type.name }} *t, complex_{{ type.suffi
 	if (write_real) {
 		for (uint32_t i = 0; i < length; i++) {
 			x[i].real = x[i].real + wave_properties.offset +
-						{{ type.math_prefix }}((double)wave_properties.amplitude *
-							sin{{ type.math_suffix }}((double)6.28318530717958647692 * (double)wave_properties.frequency * (double)t[i] +
-								 (double)6.28318530717958647692 * (double)wave_properties.phase));
+						{{ type.math_prefix }}({{ type.math_prefix }}wave_properties.amplitude *
+							sin{{ type.math_suffix }}({{ type.math_prefix }}6.28318530717958647692 * {{ type.math_prefix }}wave_properties.frequency * {{ type.math_prefix }}t[i] +
+								 {{ type.math_prefix }}6.28318530717958647692 * {{ type.math_prefix }}wave_properties.phase));
 		}
 	}
 	if (write_imag) {
 		for (uint32_t i = 0; i < length; i++) {
 			x[i].imag = x[i].imag + wave_properties.offset +
-						{{ type.math_prefix }}((double)wave_properties.amplitude *
-							sin{{ type.math_suffix }}((double)6.28318530717958647692 * (double)wave_properties.frequency * (double)t[i] +
-								 (double)6.28318530717958647692 * (double)wave_properties.phase));
+						{{ type.math_prefix }}({{ type.math_prefix }}wave_properties.amplitude *
+							sin{{ type.math_suffix }}({{ type.math_prefix }}6.28318530717958647692 * {{ type.math_prefix }}wave_properties.frequency * {{ type.math_prefix }}t[i] +
+								 {{ type.math_prefix }}6.28318530717958647692 * {{ type.math_prefix }}wave_properties.phase));
 		}
 	}
 }
@@ -65,17 +65,17 @@ void add_cos_complex_{{ type.suffix }}({{ type.name }} *t, complex_{{ type.suffi
 	if (write_real) {
 		for (uint32_t i = 0; i < length; i++) {
 			x[i].real = x[i].real + wave_properties.offset +
-						{{ type.math_prefix }}((double)wave_properties.amplitude *
-							cos{{ type.math_suffix }}((double)6.28318530717958647692 * (double)wave_properties.frequency * (double)t[i] +
-								 (double)6.28318530717958647692 * (double)wave_properties.phase));
+						{{ type.math_prefix }}({{ type.math_prefix }}wave_properties.amplitude *
+							cos{{ type.math_suffix }}({{ type.math_prefix }}6.28318530717958647692 * {{ type.math_prefix }}wave_properties.frequency * {{ type.math_prefix }}t[i] +
+								 {{ type.math_prefix }}6.28318530717958647692 * {{ type.math_prefix }}wave_properties.phase));
 		}
 	}
 	if (write_imag) {
 		for (uint32_t i = 0; i < length; i++) {
 			x[i].imag = x[i].imag + wave_properties.offset +
-						{{ type.math_prefix }}((double)wave_properties.amplitude *
-							cos{{ type.math_suffix }}((double)6.28318530717958647692 * (double)wave_properties.frequency * (double)t[i] +
-								 (double)6.28318530717958647692 * (double)wave_properties.phase));
+						{{ type.math_prefix }}({{ type.math_prefix }}wave_properties.amplitude *
+							cos{{ type.math_suffix }}({{ type.math_prefix }}6.28318530717958647692 * {{ type.math_prefix }}wave_properties.frequency * {{ type.math_prefix }}t[i] +
+								 {{ type.math_prefix }}6.28318530717958647692 * {{ type.math_prefix }}wave_properties.phase));
 		}
 	}
 }
