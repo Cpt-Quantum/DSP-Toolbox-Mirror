@@ -31,6 +31,7 @@ using namespace std;
 #define N_CHUNKS 2000
 #define DATA_LENGTH (CHUNK_SIZE * N_CHUNKS)
 #define FREQ_BINS 200
+#define NOISE_VARIANCE 1
 
 template <typename num_t> class data_filter {
   private:
@@ -46,11 +47,12 @@ template <typename num_t> class data_filter {
 	/* Constructor */
 	data_filter(string _ifilename, string _ofilename, unsigned int _chunk_size,
 				unsigned int _freq_bins, unsigned int _n_channels,
-				unsigned int _sample_rate, unsigned int _wave_length)
+				unsigned _noise_variance, unsigned int _sample_rate,
+				unsigned int _wave_length)
 		: chunk_size(_chunk_size), n_channels(_n_channels),
 		  sample_rate(_sample_rate), t(_sample_rate, _wave_length),
 		  data(_ifilename, _ofilename, _chunk_size, _freq_bins, _n_channels,
-			   _sample_rate, _wave_length) {
+			   _noise_variance, _sample_rate, _wave_length) {
 		n_chunks = _wave_length / chunk_size;
 	};
 	/* Wrapper function to expose any needed functions from data_io */
@@ -158,7 +160,8 @@ const string json_filename("fir.json");
 int main(void) {
 	/* Create the class that handles the file IO */
 	data_filter<float> eeg(input_filename, output_filename, CHUNK_SIZE,
-						   FREQ_BINS, N_CHANNELS, F_S, DATA_LENGTH);
+						   FREQ_BINS, N_CHANNELS, NOISE_VARIANCE, F_S,
+						   DATA_LENGTH);
 
 	/* Only generate data if there isn't a file already generated */
 	bool input_data_exists = eeg.input_data_exists();

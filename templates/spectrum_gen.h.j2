@@ -9,7 +9,7 @@ extern "C" {
 #include "spectrum_gen_shared.h"
 #include "waveform_gen_{{ type.suffix }}.h"
 
-void generate_spectrum_waveform_{{ type.suffix }}({{ type.name }} *t, {{ type.name }} *x, uint32_t data_length, uint32_t sample_rate, uint32_t num_steps, AMPLITUDE_SPECTRUM_E profile);
+void generate_spectrum_waveform_{{ type.suffix }}({{ type.name }} *t, {{ type.name }} *x, uint32_t data_length, uint32_t sample_rate, uint32_t num_steps, AMPLITUDE_SPECTRUM_E profile, {{ type.name }} noise_amplitude);
 
 #ifdef __cplusplus
 }

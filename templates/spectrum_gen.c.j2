@@ -1,7 +1,9 @@
 #include "spectrum_gen_{{ type.suffix }}.h"
 #include <math.h>
+#include <stdlib.h>
+#include <time.h>
 
-void generate_spectrum_waveform_{{ type.suffix }}({{ type.name }} *t, {{ type.name }} *x, uint32_t data_length, uint32_t sample_rate, uint32_t num_steps, AMPLITUDE_SPECTRUM_E profile) {
+void generate_spectrum_waveform_{{ type.suffix }}({{ type.name }} *t, {{ type.name }} *x, uint32_t data_length, uint32_t sample_rate, uint32_t num_steps, AMPLITUDE_SPECTRUM_E profile, {{ type.name }} noise_amplitude) {
 	/* Generate the time array */
 	gen_time_{{ type.suffix }}(t, data_length, sample_rate);
 
@@ -71,5 +73,15 @@ void generate_spectrum_waveform_{{ type.suffix }}({{ type.name }} *t, {{ type.na
 
 		/* Add to the main waveform */
 		waveform_add_superposition_{{ type.suffix }}(prop, t, x, data_length);
+	}
+
+	/* Add noise if variance is non-zero */
+	if (noise_amplitude != ({{ type.name }})0) {
+    srand(time(NULL));
+		for (uint32_t i = 0; i < data_length; i++) {
+			/* Generate a random number between -1.0 and 1.0 */
+			{{ type.name }} random_val = (rand() * noise_amplitude) / RAND_MAX;
+			x[i] = x[i] + random_val;
+		}
 	}
 }

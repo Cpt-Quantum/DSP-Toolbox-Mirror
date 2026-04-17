@@ -15,6 +15,7 @@ template <typename num_t> class data_io {
 	unsigned int freq_bins;
 	unsigned int n_channels;
 	unsigned int n_chunks;
+	num_t noise_variance;
 	unsigned int sample_rate;
 	unsigned int wave_length;
 
@@ -52,7 +53,7 @@ template <typename num_t> class data_io {
 		for (unsigned int i = 0; i < n_channels; i++) {
 			waveform_x<num_t> x(wave_length);
 			x.gen_spectrum(t.t, wave_length, sample_rate, freq_bins,
-						   AMPLITUDE_SPECTRUM_FLAT);
+						   AMPLITUDE_SPECTRUM_FLAT, 0);
 			/* The binary file output is grouped into chunks for each channel,
 			 * rather than storing each channel contiguously. This drastically
 			 * improves performance when filtering there data, as that is done
@@ -101,12 +102,12 @@ template <typename num_t> class data_io {
 	/* Constructor(s) */
 	data_io(std::string _ifilename, std::string _ofilename,
 			unsigned int _chunk_size, unsigned int _freq_bins,
-			unsigned int _n_channels, unsigned int _sample_rate,
-			unsigned int _wave_length)
+			unsigned int _n_channels, num_t _noise_variance,
+			unsigned int _sample_rate, unsigned int _wave_length)
 		: ifilename(_ifilename), ofilename(_ofilename), chunk_size(_chunk_size),
 		  freq_bins(_freq_bins), n_channels(_n_channels),
-		  sample_rate(_sample_rate), wave_length(_wave_length),
-		  t(_sample_rate, _wave_length) {
+		  noise_variance(_noise_variance), sample_rate(_sample_rate),
+		  wave_length(_wave_length), t(_sample_rate, _wave_length) {
 		n_chunks = wave_length / chunk_size;
 	};
 	/* Destructor */
