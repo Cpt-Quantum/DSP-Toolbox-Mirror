@@ -59,8 +59,8 @@ template <> struct waveform_traits<float> {
 	}
 	static inline void gen_spectrum(float *t, float *y, std::size_t len,
 									uint32_t f_s, uint32_t num_steps,
-									AMPLITUDE_SPECTRUM_E profile, float noise_variance) {
-		generate_spectrum_waveform_float(t, y, len, f_s, num_steps, profile, noise_variance);
+									AMPLITUDE_SPECTRUM_E profile, float base_amplitude, float noise_variance) {
+		generate_spectrum_waveform_float(t, y, len, f_s, num_steps, profile, base_amplitude, noise_variance);
 	}
 };
 /* Double Specialization */
@@ -73,8 +73,8 @@ template <> struct waveform_traits<double> {
 	}
 	static inline void gen_spectrum(double *t, double *y, std::size_t len,
 									uint32_t f_s, uint32_t num_steps,
-									AMPLITUDE_SPECTRUM_E profile, double noise_variance) {
-		generate_spectrum_waveform_double(t, y, len, f_s, num_steps, profile, noise_variance);
+									AMPLITUDE_SPECTRUM_E profile, double base_amplitude, double noise_variance) {
+		generate_spectrum_waveform_double(t, y, len, f_s, num_steps, profile, base_amplitude, noise_variance);
 	}
 };
 /* Int32 Specialization */
@@ -87,8 +87,8 @@ template <> struct waveform_traits<int32_t> {
 	}
 	static inline void gen_spectrum(int32_t *t, int32_t *y, std::size_t len,
 									uint32_t f_s, uint32_t num_steps,
-									AMPLITUDE_SPECTRUM_E profile, int32_t noise_variance) {
-		generate_spectrum_waveform_int32(t, y, len, f_s, num_steps, profile, noise_variance);
+									AMPLITUDE_SPECTRUM_E profile, int32_t base_amplitude, int32_t noise_variance) {
+		generate_spectrum_waveform_int32(t, y, len, f_s, num_steps, profile, base_amplitude, noise_variance);
 	}
 };
 /* Waveform creation/storage wrapper class */
@@ -124,9 +124,9 @@ template <typename num_t> class waveform_x {
 		}
 	};
 	void gen_spectrum(std::vector<num_t> &t, std::size_t length, uint32_t f_s,
-					  uint32_t num_steps, AMPLITUDE_SPECTRUM_E profile, num_t noise_variance) {
+					  uint32_t num_steps, AMPLITUDE_SPECTRUM_E profile, num_t base_amplitude, num_t noise_variance) {
 		traits::gen_spectrum(t.data(), x.data(), length, f_s, num_steps,
-							 profile, noise_variance);
+							 profile, base_amplitude, noise_variance);
 	};
 };
 

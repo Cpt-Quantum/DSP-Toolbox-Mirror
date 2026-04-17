@@ -70,7 +70,7 @@ int main() {
 	printf("Generating test waveform.\n");
 	generate_spectrum_waveform_float(t, data_in, DATA_SIZE, f_s,
 									 SPECTRUM_FREQUENCY_BINS,
-									 AMPLITUDE_SPECTRUM_FLAT, 0.0f);
+									 AMPLITUDE_SPECTRUM_FLAT, 1.0f, 0.0f);
 
 	/* Perform the filter */
 	printf("Performing filters against the input data.\n");

@@ -53,7 +53,7 @@ template <typename num_t> class data_io {
 		for (unsigned int i = 0; i < n_channels; i++) {
 			waveform_x<num_t> x(wave_length);
 			x.gen_spectrum(t.t, wave_length, sample_rate, freq_bins,
-						   AMPLITUDE_SPECTRUM_FLAT, 0);
+						   AMPLITUDE_SPECTRUM_FLAT, 1, 0);
 			/* The binary file output is grouped into chunks for each channel,
 			 * rather than storing each channel contiguously. This drastically
 			 * improves performance when filtering there data, as that is done
