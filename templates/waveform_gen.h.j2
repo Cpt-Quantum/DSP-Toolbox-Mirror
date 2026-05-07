@@ -112,7 +112,7 @@ void waveform_add_superposition_{{ type.suffix }}(wave_properties_{{ type.suffix
 								{{ type.name }} *x, uint32_t data_length);
 void waveform_add_superposition_complex_{{ type.suffix }}(wave_properties_{{ type.suffix }}_t wave_properties,
 										{{ type.name }} *t, complex_{{ type.suffix }}_t *x, bool write_real,
-										bool write_imag, int32_t data_length);
+										bool write_imag, uint32_t data_length);
 
 /* Initialises the waveform based on the pass wave_settings */
 /* wave_settings: Struct containing all of the wave settings required for */
