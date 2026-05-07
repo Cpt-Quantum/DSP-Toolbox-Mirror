@@ -401,6 +401,12 @@ template <typename num_t> class fir {
 		traits::decimate(data_in.data(), data_out.data(), filt_struct.get(),
 						 length, decimation_rate);
 	};
+	/* Getter methods for coefficients and taps */
+	std::vector<num_t> get_coefficients() const {
+		return std::vector<num_t>(filt_struct->b,
+								  filt_struct->b + filt_struct->taps);
+	}
+	uint16_t get_num_taps() const { return filt_struct->taps; }
 };
 
 /* Map the numerical type (float/double/int32_t) to struct and function types
@@ -554,6 +560,16 @@ template <typename num_t> class iir_ba {
 		traits::filter(data_in.data(), data_out.data(), filt_struct.get(),
 					   length);
 	};
+	/* Getter methods for coefficients and taps */
+	std::vector<num_t> get_a_coefficients() const {
+		return std::vector<num_t>(filt_struct->a,
+								  filt_struct->a + filt_struct->taps);
+	}
+	std::vector<num_t> get_b_coefficients() const {
+		return std::vector<num_t>(filt_struct->b,
+								  filt_struct->b + filt_struct->taps);
+	}
+	uint16_t get_num_taps() const { return filt_struct->taps; }
 };
 
 /* Map the numerical type (float/double/int32_t) to struct and function types
@@ -615,6 +631,12 @@ template <> struct sos_traits<int64_t> {
 	}
 	static inline void free(struct_type *filt) { free_sos_int64(filt); }
 };
+/* Biquad coefficients structure for SOS filters */
+template <typename num_t> struct biquad_coefficients {
+	std::vector<num_t> a;
+	std::vector<num_t> b;
+};
+
 /* IIR (SOS) wrapper class */
 template <typename num_t> class iir_sos {
   private:
@@ -698,6 +720,21 @@ template <typename num_t> class iir_sos {
 		traits::filter(data_in.data(), data_out.data(), filt_struct.get(),
 					   length);
 	};
+	/* Getter methods for coefficients, gain and sections */
+	std::vector<biquad_coefficients<num_t>> get_sections() const {
+		std::vector<biquad_coefficients<num_t>> sections;
+		sections.reserve(filt_struct->num_sections);
+		for (uint16_t i = 0; i < filt_struct->num_sections; ++i) {
+			sections.push_back(
+				{std::vector<num_t>(filt_struct->biquad_section[i].a,
+									filt_struct->biquad_section[i].a + 3),
+				 std::vector<num_t>(filt_struct->biquad_section[i].b,
+									filt_struct->biquad_section[i].b + 3)});
+		}
+		return sections;
+	}
+	uint16_t get_num_sections() const { return filt_struct->num_sections; }
+	num_t get_gain() const { return filt_struct->gain; }
 };
 
 #endif /* DSP_TOOLBOX_CPP_WRAPPER_H */
