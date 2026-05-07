@@ -17,20 +17,25 @@ C_SRC += ../inc/complex_float.c
 C_SRC += ../inc/spectrum_gen_double.c
 C_SRC += ../inc/spectrum_gen_float.c
 C_SRC += ../inc/spectrum_gen_int32.c
+C_SRC += ../inc/spectrum_gen_int64.c
 C_SRC += ../inc/waveform_gen_double.c
 C_SRC += ../inc/waveform_gen_float.c
 C_SRC += ../inc/waveform_gen_int32.c
+C_SRC += ../inc/waveform_gen_int64.c
 C_SRC += ../cjson/cJSON.c
 C_SRC += ../cjson/cJSON_helpers.c
 C_SRC += ../filter/fir_double.c
 C_SRC += ../filter/fir_float.c
 C_SRC += ../filter/fir_int32.c
+C_SRC += ../filter/fir_int64.c
 C_SRC += ../filter/iir_double.c
 C_SRC += ../filter/iir_float.c
 C_SRC += ../filter/iir_int32.c
+C_SRC += ../filter/iir_int64.c
 C_SRC += ../filter/json_to_filt_double.c
 C_SRC += ../filter/json_to_filt_float.c
 C_SRC += ../filter/json_to_filt_int32.c
+C_SRC += ../filter/json_to_filt_int64.c
 
 LINKER_FLAGS = -lm
 

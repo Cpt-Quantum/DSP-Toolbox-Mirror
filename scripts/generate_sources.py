@@ -21,6 +21,12 @@ types_config = [
         "math_suffix": "f",  # Use float math for generation
         "math_prefix": "(int32_t)",  # Cast result back to int32_t
     },
+    {
+        "name": "int64_t",
+        "suffix": "int64",
+        "math_suffix": "",  # Use double math for generation
+        "math_prefix": "(int64_t)",  # Cast result back to int64_t
+    },
 ]
 
 # Templates and their output filename patterns
@@ -31,6 +37,8 @@ inc_templates = [
     ("waveform_gen.c.j2", "waveform_gen_{type}.c"),
     ("spectrum_gen.h.j2", "spectrum_gen_{type}.h"),
     ("spectrum_gen.c.j2", "spectrum_gen_{type}.c"),
+    ("constants.h.j2", "constants_{type}.h"),
+    ("constants.c.j2", "constants_{type}.c"),
 ]
 filter_templates = [
     ("fir.h.j2", "fir_{type}.h"),

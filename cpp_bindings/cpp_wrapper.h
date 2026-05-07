@@ -6,19 +6,24 @@
 #include "../filter/fir_double.h"
 #include "../filter/fir_float.h"
 #include "../filter/fir_int32.h"
+#include "../filter/fir_int64.h"
 #include "../filter/iir_double.h"
 #include "../filter/iir_float.h"
 #include "../filter/iir_int32.h"
+#include "../filter/iir_int64.h"
 #include "../filter/json_to_filt_double.h"
 #include "../filter/json_to_filt_float.h"
 #include "../filter/json_to_filt_int32.h"
+#include "../filter/json_to_filt_int64.h"
 #include "../inc/spectrum_gen_double.h"
 #include "../inc/spectrum_gen_float.h"
 #include "../inc/spectrum_gen_int32.h"
+#include "../inc/spectrum_gen_int64.h"
 #include "../inc/spectrum_gen_shared.h"
 #include "../inc/waveform_gen_double.h"
 #include "../inc/waveform_gen_float.h"
 #include "../inc/waveform_gen_int32.h"
+#include "../inc/waveform_gen_int64.h"
 #include "../inc/waveform_gen_shared.h"
 
 #include <cstdint>
@@ -107,6 +112,26 @@ template <> struct waveform_traits<int32_t> {
 	}
 	static inline void divide(int32_t *x, int32_t factor, uint32_t len) {
 		divide_waveform_int32(x, factor, len);
+	}
+};
+/* Int64 Specialization */
+template <> struct waveform_traits<int64_t> {
+	using props_type = wave_properties_int64_t;
+
+	static inline void add_superposition(props_type props, int64_t *t,
+										 int64_t *y, std::size_t len) {
+		waveform_add_superposition_int64(props, t, y, len);
+	}
+	static inline void gen_spectrum(int64_t *t, int64_t *y, std::size_t len,
+									uint32_t f_s, uint32_t num_steps,
+									AMPLITUDE_SPECTRUM_E profile, int64_t base_amplitude, int64_t noise_variance) {
+		generate_spectrum_waveform_int64(t, y, len, f_s, num_steps, profile, base_amplitude, noise_variance);
+	}
+	static inline void scale(int64_t *x, int64_t factor, uint32_t len) {
+		scale_waveform_int64(x, factor, len);
+	}
+	static inline void divide(int64_t *x, int64_t factor, uint32_t len) {
+		divide_waveform_int64(x, factor, len);
 	}
 };
 /* Waveform creation/storage wrapper class */
@@ -256,6 +281,23 @@ template <> struct fir_traits<int32_t> {
 	}
 	static inline void free(struct_type *filt) { free_fir_int32(filt); }
 };
+/* Int64 Specialization */
+template <> struct fir_traits<int64_t> {
+	using struct_type = fir_int64_t;
+
+	static inline void filter(int64_t *data_in, int64_t *data_out,
+							  struct_type *filt, uint32_t len) {
+		fir_filter_int64(data_in, data_out, filt, len);
+	}
+	static inline void decimate(int64_t *data_in, int64_t *data_out,
+								struct_type *filt, uint32_t len, uint8_t rate) {
+		fir_decimate_int64(data_in, data_out, filt, len, rate);
+	}
+	static inline void create(struct_type *filt, cJSON *node) {
+		init_fir_from_json_int64(filt, node);
+	}
+	static inline void free(struct_type *filt) { free_fir_int64(filt); }
+};
 /* FIR wrapper class */
 template <typename num_t> class fir {
   private:
@@ -389,6 +431,19 @@ template <> struct iir_traits<int32_t> {
 		init_iir_from_json_int32(filt, node);
 	}
 	static inline void free(struct_type *filt) { free_iir_int32(filt); }
+};
+/* Int64 Specialization */
+template <> struct iir_traits<int64_t> {
+	using struct_type = iir_int64_t;
+
+	static inline void filter(int64_t *data_in, int64_t *data_out,
+							  struct_type *filt, uint32_t len) {
+		iir_filter_int64(data_in, data_out, filt, len);
+	}
+	static inline void create(struct_type *filt, cJSON *node) {
+		init_iir_from_json_int64(filt, node);
+	}
+	static inline void free(struct_type *filt) { free_iir_int64(filt); }
 };
 /* IIR (direct form) wrapper class */
 template <typename num_t> class iir_ba {
@@ -532,6 +587,20 @@ template <> struct sos_traits<int32_t> {
 		init_sos_from_json_int32(filt, node);
 	}
 	static inline void free(struct_type *filt) { free_sos_int32(filt); }
+};
+/* Int64 Specialization */
+template <> struct sos_traits<int64_t> {
+	using struct_type = sos_filter_int64_t;
+	using biquad_type = biquad_section_int64_t;
+
+	static inline void filter(int64_t *data_in, int64_t *data_out,
+							  struct_type *filt, uint32_t len) {
+		sos_filter_int64(data_in, data_out, filt, len);
+	}
+	static inline void create(struct_type *filt, cJSON *node) {
+		init_sos_from_json_int64(filt, node);
+	}
+	static inline void free(struct_type *filt) { free_sos_int64(filt); }
 };
 /* IIR (SOS) wrapper class */
 template <typename num_t> class iir_sos {
