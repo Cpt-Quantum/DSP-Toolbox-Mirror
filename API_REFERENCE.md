@@ -7,8 +7,6 @@ In the descriptions below, `{{suffix}}` represents the type suffix (e.g., `float
 ---
 
 ## Table of Contents
-
-- [Constants](#constants)
 - [Complex Math](#complex-math)
 - [FIR Filters](#fir-filters)
 - [IIR Filters](#iir-filters)
@@ -157,6 +155,8 @@ Tools for creating signals and time/frequency vectors in `waveform_gen_{{suffix}
 | `divide_waveform_{{suffix}}(x, factor, len)` | Divides buffer by a scalar. |
 | `scale_waveform_complex_{{suffix}}(x, factor, len)` | Scales a complex buffer. |
 | `divide_waveform_complex_{{suffix}}(x, factor, len)` | Divides a complex buffer. |
+| `mask_waveform_{{suffix}}(x, bit_width, len)` | Limits (saturates) buffer values to the range of a signed integer of `bit_width`. |
+| `mask_waveform_complex_{{suffix}}(x, bit_width, len)` | Limits (saturates) complex buffer values to the range of a signed integer of `bit_width`. |
 
 ---
 

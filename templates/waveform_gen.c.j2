@@ -3,7 +3,6 @@
 #include <stdint.h>
 
 #include "complex_{{ type.suffix }}.h"
-#include "constants_{{ type.suffix }}.h"
 #include "waveform_gen_{{ type.suffix }}.h"
 
 void gen_time_{{ type.suffix }}({{ type.name }} *t, uint32_t length, uint32_t sample_freq) {
@@ -181,5 +180,51 @@ void divide_waveform_complex_{{ type.suffix }}(complex_{{ type.suffix }}_t *x, {
 	for (uint32_t i = 0; i < length; i++) {
 		x[i].real /= scale_factor;
 		x[i].imag /= scale_factor;
+	}
+}
+
+void mask_waveform_{{ type.suffix }}({{ type.name }} *x, uint32_t bit_width, uint32_t length) {
+	if (bit_width == 0 || bit_width > 64) {
+		return;
+	}
+
+	int64_t max_limit = (int64_t)(((uint64_t)1 << (bit_width - 1)) - 1);
+	int64_t min_limit = (int64_t)-(int64_t)(((uint64_t)1 << (bit_width - 1)) - 1) - 1;
+
+	{{ type.name }} max_val = ({{ type.name }})max_limit;
+	{{ type.name }} min_val = ({{ type.name }})min_limit;
+
+	for (uint32_t i = 0; i < length; i++) {
+		if (x[i] > max_val) {
+			x[i] = max_val;
+		} else if (x[i] < min_val) {
+			x[i] = min_val;
+		}
+	}
+}
+
+void mask_waveform_complex_{{ type.suffix }}(complex_{{ type.suffix }}_t *x, uint32_t bit_width, uint32_t length) {
+	if (bit_width == 0 || bit_width > 64) {
+		return;
+	}
+
+	int64_t max_limit = (int64_t)(((uint64_t)1 << (bit_width - 1)) - 1);
+	int64_t min_limit = (int64_t)-(int64_t)(((uint64_t)1 << (bit_width - 1)) - 1) - 1;
+
+	{{ type.name }} max_val = ({{ type.name }})max_limit;
+	{{ type.name }} min_val = ({{ type.name }})min_limit;
+
+	for (uint32_t i = 0; i < length; i++) {
+		if (x[i].real > max_val) {
+			x[i].real = max_val;
+		} else if (x[i].real < min_val) {
+			x[i].real = min_val;
+		}
+
+		if (x[i].imag > max_val) {
+			x[i].imag = max_val;
+		} else if (x[i].imag < min_val) {
+			x[i].imag = min_val;
+		}
 	}
 }

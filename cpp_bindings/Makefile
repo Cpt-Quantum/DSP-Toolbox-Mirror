@@ -12,7 +12,6 @@ CFLAGS = -Wall -O3
 CFLAGS += -DF_S=$(SAMPLE_RATE) -DN_CHANNELS=$(N_CHANNELS)
 CFLAGS += -DN_TAPS=$(N_TAPS) -DDECIMATION=$(DECIMATION_RATE)
 
-C_SRC += ../inc/constants_float.c
 C_SRC += ../inc/complex_float.c
 C_SRC += ../inc/spectrum_gen_double.c
 C_SRC += ../inc/spectrum_gen_float.c

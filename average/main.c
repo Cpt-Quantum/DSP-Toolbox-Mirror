@@ -1,7 +1,6 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdint.h>
-#include "../inc/constants_float.h"
 #include "../inc/waveform_gen_float.h"
 #include "avg.h"
 
@@ -14,35 +13,35 @@ static const wave_properties_float_t wave_prop_1[] = {
 		.offset = 0,
 		.frequency = 80,
 		.phase = 0,
-		.function_type = FUNCTION_SINE_FLOAT,
+		.function_type = FUNCTION_SINE,
 	},
 	[1] = {
 		.amplitude = 0.8,
 		.offset = 0,
 		.frequency = 200,
 		.phase = 0,
-		.function_type = FUNCTION_SINE_FLOAT,
+		.function_type = FUNCTION_SINE,
 	},
 	[2] = {
 		.amplitude = 1.2,
 		.offset = 0,
 		.frequency = 1000,
 		.phase = 0,
-		.function_type = FUNCTION_SINE_FLOAT,
+		.function_type = FUNCTION_SINE,
 	},
 	[3] = {
 		.amplitude = 0.9,
 		.offset = 0,
 		.frequency = 4000,
 		.phase = 0,
-		.function_type = FUNCTION_SINE_FLOAT,
+		.function_type = FUNCTION_SINE,
 	},
 	[4] = {
 		.amplitude = 0.5,
 		.offset = 0,
 		.frequency = 8000,
 		.phase = 0,
-		.function_type = FUNCTION_SINE_FLOAT,
+		.function_type = FUNCTION_SINE,
 	},
 };
 #define WAVE_1_SUP_COUNT (sizeof(wave_prop_1) / sizeof(wave_prop_1[0]))

@@ -73,6 +73,9 @@ template <> struct waveform_traits<float> {
 	static inline void divide(float *x, float factor, uint32_t len) {
 		divide_waveform_float(x, factor, len);
 	}
+	static inline void mask(float *x, uint32_t bit_width, uint32_t len) {
+		mask_waveform_float(x, bit_width, len);
+	}
 };
 /* Double Specialization */
 template <> struct waveform_traits<double> {
@@ -92,6 +95,9 @@ template <> struct waveform_traits<double> {
 	}
 	static inline void divide(double *x, double factor, uint32_t len) {
 		divide_waveform_double(x, factor, len);
+	}
+	static inline void mask(double *x, uint32_t bit_width, uint32_t len) {
+		mask_waveform_double(x, bit_width, len);
 	}
 };
 /* Int32 Specialization */
@@ -113,6 +119,9 @@ template <> struct waveform_traits<int32_t> {
 	static inline void divide(int32_t *x, int32_t factor, uint32_t len) {
 		divide_waveform_int32(x, factor, len);
 	}
+	static inline void mask(int32_t *x, uint32_t bit_width, uint32_t len) {
+		mask_waveform_int32(x, bit_width, len);
+	}
 };
 /* Int64 Specialization */
 template <> struct waveform_traits<int64_t> {
@@ -132,6 +141,9 @@ template <> struct waveform_traits<int64_t> {
 	}
 	static inline void divide(int64_t *x, int64_t factor, uint32_t len) {
 		divide_waveform_int64(x, factor, len);
+	}
+	static inline void mask(int64_t *x, uint32_t bit_width, uint32_t len) {
+		mask_waveform_int64(x, bit_width, len);
 	}
 };
 /* Waveform creation/storage wrapper class */
@@ -173,6 +185,7 @@ template <typename num_t> class waveform_x {
 	};
 	void scale(num_t factor) { traits::scale(x.data(), factor, wave_length); }
 	void divide(num_t factor) { traits::divide(x.data(), factor, wave_length); }
+	void mask(uint32_t bit_width) { traits::mask(x.data(), bit_width, wave_length); }
 };
 
 /* Wrapper class around the JSON parsing functions */

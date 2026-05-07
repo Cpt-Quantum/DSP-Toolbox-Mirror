@@ -37,8 +37,6 @@ inc_templates = [
     ("waveform_gen.c.j2", "waveform_gen_{type}.c"),
     ("spectrum_gen.h.j2", "spectrum_gen_{type}.h"),
     ("spectrum_gen.c.j2", "spectrum_gen_{type}.c"),
-    ("constants.h.j2", "constants_{type}.h"),
-    ("constants.c.j2", "constants_{type}.c"),
 ]
 filter_templates = [
     ("fir.h.j2", "fir_{type}.h"),

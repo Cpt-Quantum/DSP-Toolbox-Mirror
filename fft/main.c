@@ -3,7 +3,6 @@
 #include <stdint.h>
 
 #include "fft.h"
-#include "../inc/constants_float.h"
 #include "../inc/complex_float.h"
 #include "../inc/waveform_gen_float.h"
 
@@ -21,14 +20,14 @@ wave_properties_float_t wave_1[] = {
 		.offset = 0,
 		.frequency = 10,
 		.phase = 0,
-		.function_type = FUNCTION_COS_FLOAT
+		.function_type = FUNCTION_COS
 		},
 	[1] = {
 		.amplitude = 50,
 		.offset = 0,
 		.frequency = 50,
 		.phase = 0,
-		.function_type = FUNCTION_COS_FLOAT
+		.function_type = FUNCTION_COS
 		},
 };
 

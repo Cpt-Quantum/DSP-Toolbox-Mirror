@@ -154,6 +154,18 @@ void scale_waveform_complex_{{ type.suffix }}(complex_{{ type.suffix }}_t *x, {{
 /* length: The length of the array */
 void divide_waveform_complex_{{ type.suffix }}(complex_{{ type.suffix }}_t *x, {{ type.name }} scale_factor, uint32_t length);
 
+/* mask_waveform: Limits (saturates) the waveform values to the range of a signed integer of bit_width. */
+/* x: The data buffer to mask */
+/* bit_width: The bit width to limit to (e.g., 16 for a 16-bit ADC) */
+/* length: The length of the array */
+void mask_waveform_{{ type.suffix }}({{ type.name }} *x, uint32_t bit_width, uint32_t length);
+
+/* mask_waveform_complex: Limits (saturates) the complex waveform values to the range of a signed integer of bit_width. */
+/* x: The data buffer to mask */
+/* bit_width: The bit width to limit to */
+/* length: The length of the array */
+void mask_waveform_complex_{{ type.suffix }}(complex_{{ type.suffix }}_t *x, uint32_t bit_width, uint32_t length);
+
 #ifdef __cplusplus
 }
 #endif
