@@ -89,14 +89,14 @@ template <typename num_t> class data_io {
 	}
 
 	/* Functions for reading/writing chunks from the opened files */
-	bool read_chunk(std::vector<float> &chunk_data, unsigned int size) {
+	bool read_chunk(std::vector<num_t> &chunk_data, unsigned int size) {
 		return (bool)in_stream.read(reinterpret_cast<char *>(chunk_data.data()),
-									size * sizeof(float));
+									size * sizeof(num_t));
 	}
-	bool write_chunk(const std::vector<float> &chunk_data, unsigned int size) {
+	bool write_chunk(const std::vector<num_t> &chunk_data, unsigned int size) {
 		return (bool)out_stream.write(
 			reinterpret_cast<const char *>(chunk_data.data()),
-			size * sizeof(float));
+			size * sizeof(num_t));
 	}
 
 	/* Constructor(s) */
