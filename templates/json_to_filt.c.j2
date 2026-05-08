@@ -7,13 +7,13 @@
 #include "iir_{{ type.suffix }}.h"
 
 {{ type.name }} get_sample_rate_from_json_{{ type.suffix }}(cJSON *f_s_node) {
-	{{ type.name }} f_s = ({{ type.name }})0.0;
+	{{ type.name }} f_s = ({{ type.name }})0.0{{ type.literal_suffix }};
 	if (cJSON_IsNumber(f_s_node)) {
 		f_s = ({{ type.name }})f_s_node->valuedouble;
 		printf("Loaded sample rate: %.1f Hz\n", (double)f_s);
 	} else {
 		printf("Warning: 'f_s' not found or invalid. Defaulting to 16kHz\n");
-		f_s = ({{ type.name }})16000.0;
+		f_s = ({{ type.name }})16000.0{{ type.literal_suffix }};
 	}
 	return f_s;
 }
@@ -104,7 +104,7 @@ void init_sos_from_json_{{ type.suffix }}(struct sos_filter_{{ type.suffix }}_t 
 	/* Get the number of second order sections and the gain (set the gain to 1
 	 * if not present) */
 	filt->num_sections = (uint16_t)cJSON_GetArraySize(sections_arr);
-	filt->gain = cJSON_IsNumber(gain) ? ({{ type.name }})gain->valuedouble : ({{ type.name }})1.0;
+	filt->gain = cJSON_IsNumber(gain) ? ({{ type.name }})gain->valuedouble : ({{ type.name }})1.0{{ type.literal_suffix }};
 	/* Allocate memory for the second order sections */
 	filt->biquad_section = (struct biquad_section_{{ type.suffix }}_t *)malloc(
 		filt->num_sections * sizeof(struct biquad_section_{{ type.suffix }}_t));

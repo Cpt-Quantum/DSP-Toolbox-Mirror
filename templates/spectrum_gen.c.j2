@@ -9,66 +9,66 @@ void generate_spectrum_waveform_{{ type.suffix }}({{ type.name }} *t, {{ type.na
 
 	/* Clear the output buffer */
 	for (uint32_t i = 0; i < data_length; i++) {
-		x[i] = ({{ type.name }})0.0;
+		x[i] = ({{ type.name }})0.0{{ type.literal_suffix }};
 	}
 
-	{{ type.name }} nyquist = (({{ type.name }})sample_rate) / ({{ type.name }})2.0;
+	{{ type.name }} nyquist = (({{ type.name }})sample_rate) / ({{ type.name }})2.0{{ type.literal_suffix }};
 	{{ type.name }} freq_step = nyquist / (({{ type.name }})num_steps);
 
 	for (uint32_t step = 1; step <= num_steps; step++) {
 		{{ type.name }} freq = (({{ type.name }})step) * freq_step;
 		
 		/* r normalizes the position in the frequency sweep from 0.0 to 1.0 */
-		double r = (double)step / (double)num_steps;
-		{{ type.name }} amplitude = ({{ type.name }})1.0;
+		{{ type.math_type }} r = ({{ type.math_type }})step / ({{ type.math_type }})num_steps;
+		{{ type.name }} amplitude = ({{ type.name }})1.0{{ type.literal_suffix }};
 
 		/* Apply mathematically pure test curves */
 		switch (profile) {
 			case AMPLITUDE_SPECTRUM_FLAT:
-				amplitude = ({{ type.name }})1.0;
+				amplitude = ({{ type.name }})1.0{{ type.literal_suffix }};
 				break;
 
 			case AMPLITUDE_SPECTRUM_LOW_DECAY:
 				/* Starts at 0, smoothly rises to 1.0 (High-Pass test) */
-				amplitude = {{ type.math_prefix }}(1.0 - exp{{ type.math_suffix }}(-5.0 * r));
+				amplitude = {{ type.math_prefix }}(1.0{{ type.literal_suffix }} - exp{{ type.math_suffix }}(-5.0{{ type.literal_suffix }} * r));
 				break;
 
 			case AMPLITUDE_SPECTRUM_HIGH_DECAY:
 				/* Stays near 1.0, smoothly drops to 0 at the tail (Low-Pass test) */
-				amplitude = {{ type.math_prefix }}(1.0 - exp{{ type.math_suffix }}(5.0 * (r - 1.0)));
+				amplitude = {{ type.math_prefix }}(1.0{{ type.literal_suffix }} - exp{{ type.math_suffix }}(5.0{{ type.literal_suffix }} * (r - 1.0{{ type.literal_suffix }})));
 				break;
 
 			case AMPLITUDE_SPECTRUM_BANDPASS:
 				/* Gaussian bell curve centered at r = 0.5 */
-				amplitude = {{ type.math_prefix }}exp{{ type.math_suffix }}(-25.0 * (r - 0.5) * (r - 0.5));
+				amplitude = {{ type.math_prefix }}exp{{ type.math_suffix }}(-25.0{{ type.literal_suffix }} * (r - 0.5{{ type.literal_suffix }}) * (r - 0.5{{ type.literal_suffix }}));
 				break;
 
 			case AMPLITUDE_SPECTRUM_BANDSTOP:
 				/* Inverse Gaussian notch centered at r = 0.5 */
-				amplitude = {{ type.math_prefix }}(1.0 - exp{{ type.math_suffix }}(-25.0 * (r - 0.5) * (r - 0.5)));
+				amplitude = {{ type.math_prefix }}(1.0{{ type.literal_suffix }} - exp{{ type.math_suffix }}(-25.0{{ type.literal_suffix }} * (r - 0.5{{ type.literal_suffix }}) * (r - 0.5{{ type.literal_suffix }})));
 				break;
 
 			case AMPLITUDE_SPECTRUM_LOW_BOOST:
 				/* Starts at 2.0, drops smoothly to 1.0 */
-				amplitude = {{ type.math_prefix }}(1.0 + exp{{ type.math_suffix }}(-10.0 * r));
+				amplitude = {{ type.math_prefix }}(1.0{{ type.literal_suffix }} + exp{{ type.math_suffix }}(-10.0{{ type.literal_suffix }} * r));
 				break;
 
 			case AMPLITUDE_SPECTRUM_HIGH_BOOST:
 				/* Stays near 1.0, rises smoothly to 2.0 at the tail */
-				amplitude = {{ type.math_prefix }}(1.0 + exp{{ type.math_suffix }}(10.0 * (r - 1.0)));
+				amplitude = {{ type.math_prefix }}(1.0{{ type.literal_suffix }} + exp{{ type.math_suffix }}(10.0{{ type.literal_suffix }} * (r - 1.0{{ type.literal_suffix }})));
 				break;
 
 			default:
-				amplitude = ({{ type.name }})1.0;
+				amplitude = ({{ type.name }})1.0{{ type.literal_suffix }};
 				break;
 		}
 
 		/* Set properties for this frequency bin */
 		wave_properties_{{ type.suffix }}_t prop;
 		prop.amplitude = amplitude * base_amplitude;
-		prop.offset = ({{ type.name }})0.0;
+		prop.offset = ({{ type.name }})0.0{{ type.literal_suffix }};
 		prop.frequency = freq;
-		prop.phase = ({{ type.name }})0.0;
+		prop.phase = ({{ type.name }})0.0{{ type.literal_suffix }};
 		prop.function_type = FUNCTION_SINE;
 
 		/* Add to the main waveform */
@@ -77,10 +77,10 @@ void generate_spectrum_waveform_{{ type.suffix }}({{ type.name }} *t, {{ type.na
 
 	/* Add noise if variance is non-zero */
 	if (noise_amplitude != ({{ type.name }})0) {
-    srand(time(NULL));
+		srand((unsigned int)time(NULL));
 		for (uint32_t i = 0; i < data_length; i++) {
 			/* Generate a random number between -1.0 and 1.0 */
-			{{ type.name }} random_val = (rand() * noise_amplitude) / RAND_MAX;
+			{{ type.name }} random_val = ({{ type.math_prefix }}((2.0{{ type.literal_suffix }} * ({{ type.math_type }})rand() / ({{ type.math_type }})RAND_MAX) - 1.0{{ type.literal_suffix }})) * noise_amplitude;
 			x[i] = x[i] + random_val;
 		}
 	}

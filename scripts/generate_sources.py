@@ -8,24 +8,32 @@ types_config = [
         "suffix": "float",
         "math_suffix": "f",
         "math_prefix": "(float)",
+        "literal_suffix": "f",
+        "math_type": "float",
     },
     {
         "name": "double",
         "suffix": "double",
         "math_suffix": "",
         "math_prefix": "(double)",
+        "literal_suffix": "",
+        "math_type": "double",
     },
     {
         "name": "int32_t",
         "suffix": "int32",
         "math_suffix": "f",  # Use float math for generation
         "math_prefix": "(int32_t)",  # Cast result back to int32_t
+        "literal_suffix": "f",
+        "math_type": "float",
     },
     {
         "name": "int64_t",
         "suffix": "int64",
         "math_suffix": "",  # Use double math for generation
         "math_prefix": "(int64_t)",  # Cast result back to int64_t
+        "literal_suffix": "",
+        "math_type": "double",
     },
 ]
 
