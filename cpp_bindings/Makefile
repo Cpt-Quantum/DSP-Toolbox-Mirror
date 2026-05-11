@@ -1,16 +1,21 @@
 # Shared parameters for the decimation test
 SAMPLE_RATE = 16000
 N_CHANNELS = 288 #256+32
-N_TAPS = 32
+N_TAPS = 100
 DECIMATION_RATE = 4
 INPUT_BIN = "results/input_data.bin"
 OUTPUT_BIN = "results/decimated_data.bin"
+REGEN_INPUT_FILE ?= false
 
 # C parameters
 CC = g++
 CFLAGS = -Wall -O3
-CFLAGS += -DF_S=$(SAMPLE_RATE) -DN_CHANNELS=$(N_CHANNELS)
-CFLAGS += -DN_TAPS=$(N_TAPS) -DDECIMATION=$(DECIMATION_RATE)
+DEFINES_LIST += F_S=$(SAMPLE_RATE)
+DEFINES_LIST += N_CHANNELS=$(N_CHANNELS)
+DEFINES_LIST += N_TAPS=$(N_TAPS)
+DEFINES_LIST += DECIMATION=$(DECIMATION_RATE)
+DEFINES_LIST += REGEN_INPUT_FILE=$(REGEN_INPUT_FILE)
+CFLAGS += $(addprefix -D, $(DEFINES_LIST))
 
 # Include the CPP wrapper makefile
 include cpp_wrapper.mk

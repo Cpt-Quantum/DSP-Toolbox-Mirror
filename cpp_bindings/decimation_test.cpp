@@ -4,7 +4,6 @@
 #include "cpp_data_io.h"
 #include "cpp_wrapper.h"
 #include <chrono>
-#include <fstream>
 #include <iosfwd>
 #include <iostream>
 #include <string>
@@ -20,10 +19,13 @@ using namespace std;
 #define N_CHANNELS 288
 #endif
 #ifndef N_TAPS
-#define N_TAPS 32
+#define N_TAPS 100
 #endif
 #ifndef DECIMATION_RATE
 #define DECIMATION_RATE 4
+#endif
+#ifndef REGEN_INPUT_FILE
+#define REGEN_INPUT_FILE false
 #endif
 /* These constants are only used in the C++ program so aren't specified in the
  * makefile */
@@ -40,24 +42,26 @@ template <typename num_t> class data_filter {
 	unsigned int n_chunks;
 	unsigned int sample_rate;
 
-	waveform_t<num_t> t;
-	data_io<num_t> data;
+	dsp_bin_gen<num_t> data_gen;
+	dsp_bin_write<num_t> data_write;
+	dsp_bin_read<num_t> data_read;
 
   public:
 	/* Constructor */
 	data_filter(string _ifilename, string _ofilename, unsigned int _chunk_size,
-				unsigned int _freq_bins, unsigned int _n_channels,
-				unsigned _noise_variance, unsigned int _sample_rate,
-				unsigned int _wave_length)
+				unsigned int _n_chunks, unsigned int _freq_bins,
+				unsigned int _n_channels, unsigned _noise_variance,
+				unsigned int _sample_rate)
 		: chunk_size(_chunk_size), n_channels(_n_channels),
-		  sample_rate(_sample_rate), t(_sample_rate, _wave_length),
-		  data(_ifilename, _ofilename, _chunk_size, _freq_bins, _n_channels,
-			   _noise_variance, _sample_rate, _wave_length) {
-		n_chunks = _wave_length / chunk_size;
-	};
+		  sample_rate(_sample_rate),
+		  data_gen(_ifilename, _chunk_size, _n_chunks, _freq_bins, _n_channels,
+				   _noise_variance, _sample_rate),
+		  data_write(_ofilename, _chunk_size),
+		  data_read(_ifilename, _chunk_size) {};
 	/* Wrapper function to expose any needed functions from data_io */
-	unsigned int generate_input_file() { return data.generate_input_file(); }
-	bool input_data_exists() { return data.input_data_exists(); }
+	unsigned int generate_input_file(bool regenerate_if_exists) {
+		return data_gen.generate_input_file(regenerate_if_exists);
+	}
 	/* Function to filter the input data and work out performance of the code */
 	void run_benchmark(const string &json_filename,
 					   const string &output_filename, uint8_t decimation_rate) {
@@ -74,7 +78,7 @@ template <typename num_t> class data_filter {
 		}
 
 		/* Open the input and output data files */
-		if (!data.open_streams()) {
+		if (!data_read.open_stream() || !data_write.open_stream()) {
 			cout << "Failed to open input/output data files." << endl;
 			return;
 		}
@@ -83,6 +87,8 @@ template <typename num_t> class data_filter {
 		vector<float> input_chunk(chunk_size);
 		unsigned int out_chunk_size = chunk_size / decimation_rate;
 		vector<float> output_chunk(out_chunk_size);
+		/* Adjust the set chunk size for the output data */
+		data_write.chunk_size = chunk_size / decimation_rate;
 
 		long long total_compute_microseconds = 0;
 		unsigned int chunks_processed = 0;
@@ -95,7 +101,7 @@ template <typename num_t> class data_filter {
 
 			for (unsigned int ch = 0; ch < n_channels; ++ch) {
 				/* Read input from binary file */
-				if (!data.read_chunk(input_chunk, chunk_size)) {
+				if (!data_read.read_chunk(input_chunk)) {
 					eof_reached = true;
 					break;
 				}
@@ -114,7 +120,7 @@ template <typename num_t> class data_filter {
 						.count();
 
 				/* Write the output to file */
-				data.write_chunk(output_chunk, out_chunk_size);
+				data_write.write_chunk(output_chunk);
 			}
 
 			if (eof_reached)
@@ -123,7 +129,8 @@ template <typename num_t> class data_filter {
 		}
 
 		/* Close the input and output files */
-		data.close_streams();
+		data_write.close_stream();
+		data_read.close_stream();
 
 		/* Print out benchmark results */
 		double total_time_sec = total_compute_microseconds / 1000000.0;
@@ -160,21 +167,13 @@ const string json_filename("fir.json");
 int main(void) {
 	/* Create the class that handles the file IO */
 	data_filter<float> eeg(input_filename, output_filename, CHUNK_SIZE,
-						   FREQ_BINS, N_CHANNELS, NOISE_VARIANCE, F_S,
-						   DATA_LENGTH);
+						   N_CHUNKS, FREQ_BINS, N_CHANNELS, NOISE_VARIANCE,
+						   F_S);
 
-	/* Only generate data if there isn't a file already generated */
-	bool input_data_exists = eeg.input_data_exists();
-	if (input_data_exists) {
-		cout << "Input data file found in: " << input_filename
-			 << ", skipping data generation step." << endl;
-	} else {
-		if (eeg.generate_input_file() != 0) {
-			return -1;
-		}
+	/* Generate the input data and run the benchmark */
+	if (eeg.generate_input_file(REGEN_INPUT_FILE) != 0) {
+		return -1;
 	}
-
-	/* Run the benchmark */
 	eeg.run_benchmark(json_filename, output_filename, DECIMATION_RATE);
 
 	return 0;
