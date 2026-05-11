@@ -18,7 +18,8 @@ DEFINES_LIST += REGEN_INPUT_FILE=$(REGEN_INPUT_FILE)
 CFLAGS += $(addprefix -D, $(DEFINES_LIST))
 
 # Include the CPP wrapper makefile
-include cpp_wrapper.mk
+CPP_WRAPPER_ROOT_DIR = ../../../
+include ../../cpp_wrapper.mk
 
 # Python parameters
 PY = python3

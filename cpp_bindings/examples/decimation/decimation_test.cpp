@@ -1,8 +1,8 @@
 #ifndef CPP_WRAPPER_H
 #define CPP_WRAPPER_H
 
-#include "cpp_data_io.h"
-#include "cpp_wrapper.h"
+#include "../../cpp_data_io.h"
+#include "../../cpp_wrapper.h"
 #include <chrono>
 #include <iosfwd>
 #include <iostream>
@@ -50,12 +50,12 @@ template <typename num_t> class data_filter {
 	/* Constructor */
 	data_filter(string _ifilename, string _ofilename, unsigned int _chunk_size,
 				unsigned int _n_chunks, unsigned int _freq_bins,
-				unsigned int _n_channels, unsigned _noise_variance,
-				unsigned int _sample_rate)
+				unsigned int _n_channels, num_t _base_amplitude,
+				num_t _noise_variance, unsigned int _sample_rate)
 		: chunk_size(_chunk_size), n_channels(_n_channels),
 		  sample_rate(_sample_rate),
 		  data_gen(_ifilename, _chunk_size, _n_chunks, _freq_bins, _n_channels,
-				   _noise_variance, _sample_rate),
+				   _base_amplitude, _noise_variance, _sample_rate),
 		  data_write(_ofilename, _chunk_size),
 		  data_read(_ifilename, _chunk_size) {};
 	/* Wrapper function to expose any needed functions from data_io */
@@ -167,7 +167,7 @@ const string json_filename("fir.json");
 int main(void) {
 	/* Create the class that handles the file IO */
 	data_filter<float> eeg(input_filename, output_filename, CHUNK_SIZE,
-						   N_CHUNKS, FREQ_BINS, N_CHANNELS, NOISE_VARIANCE,
+						   N_CHUNKS, FREQ_BINS, N_CHANNELS, 1, NOISE_VARIANCE,
 						   F_S);
 
 	/* Generate the input data and run the benchmark */

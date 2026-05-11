@@ -1,7 +1,7 @@
 import sys
 
 # Add the top level to path to make the wrapper class file accessible
-sys.path.append("../")
+sys.path.append("../../../")
 from scripts.filter_design_wrapper import filter_wrapper, filter_e
 
 
