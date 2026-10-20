@@ -8,16 +8,22 @@ extern "C" {
 #include <math.h>
 #include <stdint.h>
 
+#include "filter_shared.h"
+
 struct fir_{{ type.suffix }}_t {
 	{{ type.name }} *b;
+	/* Input history, FILTER_STATE_SIZE(taps) elements */
 	{{ type.name }} *in_buff;
 	uint16_t taps;
-	uint16_t cycle;
+	/* Input samples until the next decimated output, 0 on initialisation */
+	uint8_t decimation_phase;
 };
 
 void fir_filter_{{ type.suffix }}({{ type.name }} *data_in, {{ type.name }} *data_out, struct fir_{{ type.suffix }}_t *filter,
 				uint32_t length);
-void fir_decimate_{{ type.suffix }}({{ type.name }} *data_in, {{ type.name }} *data_out, struct fir_{{ type.suffix }}_t *filter,
+/* Returns the number of output samples written, data_out must hold at least
+ * ceil(length / decimation_rate) samples */
+uint32_t fir_decimate_{{ type.suffix }}({{ type.name }} *data_in, {{ type.name }} *data_out, struct fir_{{ type.suffix }}_t *filter,
 				  uint32_t length, uint8_t decimation_rate);
 
 #ifdef __cplusplus

@@ -44,14 +44,16 @@ typedef struct {
 
 Finite Impulse Response filter implementation in `fir_{{suffix}}.h`.
 
+The FIR and Direct Form IIR filters keep a linear history buffer per filter, holding the previous `taps - 1` samples followed by space for a block of new samples. Input is processed in blocks of up to `FILTER_BLOCK_SIZE` samples (default 128, defined in `filter_shared.h`), with several outputs calculated together so they can be vectorised. Each output's terms are still summed in coefficient order. Any input `length` is supported. History buffers must be zeroed and hold `FILTER_STATE_SIZE(taps)` elements. If `FILTER_BLOCK_SIZE` is overridden, it must be defined the same way for every file in the build.
+
 ### Data Structures
 
 ```c
 struct fir_{{suffix}}_t {
     {{type}} *b;           // Filter coefficients
-    {{type}} *in_buff;     // Input delay line buffer
+    {{type}} *in_buff;     // Input history, FILTER_STATE_SIZE(taps) elements
     uint16_t taps;         // Number of filter taps
-    uint16_t cycle;        // Internal circular buffer index
+    uint8_t decimation_phase; // Input samples until the next decimated output
 };
 ```
 
@@ -60,7 +62,7 @@ struct fir_{{suffix}}_t {
 | Function | Description |
 | :--- | :--- |
 | `fir_filter_{{suffix}}(data_in, data_out, filter, length)` | Processes a buffer of data through the FIR filter. |
-| `fir_decimate_{{suffix}}(data_in, data_out, filter, length, rate)` | Filters and decimates the input data by the specified `decimation_rate`. |
+| `fir_decimate_{{suffix}}(data_in, data_out, filter, length, rate)` | Filters and decimates the input data by the specified `decimation_rate`, returning the number of output samples written. The decimation phase is kept between calls, so `length` does not need to be a multiple of the rate; `data_out` must hold at least `ceil(length / rate)` samples. |
 
 ---
 
@@ -76,10 +78,9 @@ Infinite Impulse Response filter implementation (Direct Form and SOS) in `iir_{{
 struct iir_{{suffix}}_t {
     {{type}} *a;           // Feedback coefficients
     {{type}} *b;           // Feedforward coefficients
-    {{type}} *in_buff;     // Input delay line
-    {{type}} *out_buff;    // Output delay line
+    {{type}} *in_buff;     // Input history, FILTER_STATE_SIZE(taps) elements
+    {{type}} *out_buff;    // Output history, FILTER_STATE_SIZE(taps) elements
     uint16_t taps;         // Number of coefficients
-    uint16_t cycle;        // Internal index
 };
 ```
 
@@ -88,8 +89,7 @@ struct iir_{{suffix}}_t {
 ```c
 struct biquad_section_{{suffix}}_t {
     {{type}} a[3], b[3];   // Section coefficients
-    {{type}} in_buff[3], out_buff[3]; // Section delay lines
-    uint16_t cycle;        // Internal index
+    {{type}} x1, x2, y1, y2; // Previous two inputs and outputs
 };
 
 struct sos_filter_{{suffix}}_t {
@@ -104,7 +104,7 @@ struct sos_filter_{{suffix}}_t {
 | Function | Description |
 | :--- | :--- |
 | `iir_filter_{{suffix}}(data_in, data_out, filter, length)` | Processes data through a Direct Form IIR filter. |
-| `sos_filter_{{suffix}}(data_in, data_out, sos_filter, length)` | Processes data through an SOS (Biquad) IIR filter. |
+| `sos_filter_{{suffix}}(data_in, data_out, sos_filter, length)` | Processes data through an SOS (Biquad) IIR filter. Any `length` is supported, and `data_in` may be the same buffer as `data_out`. |
 
 ---
 

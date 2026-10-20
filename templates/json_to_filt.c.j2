@@ -28,12 +28,13 @@ void init_fir_from_json_{{ type.suffix }}(struct fir_{{ type.suffix }}_t *filt, 
 	cJSON *b_cjson = cJSON_GetObjectItem(fir_node, "b");
 	if (!cJSON_IsArray(b_cjson))
 		return;
-	/* Get the number of filter coefficients and initialise the cycle counter */
+	/* Get the number of filter coefficients and initialise the decimation
+	 * phase */
 	filt->taps = (uint16_t)cJSON_GetArraySize(b_cjson);
-	filt->cycle = 0;
+	filt->decimation_phase = 0;
 	/* Allocate memory for the B coefficients and the lookback buffer */
 	filt->b = ({{ type.name }} *)malloc(filt->taps * sizeof({{ type.name }}));
-	filt->in_buff = ({{ type.name }} *)calloc(filt->taps, sizeof({{ type.name }}));
+	filt->in_buff = ({{ type.name }} *)calloc(FILTER_STATE_SIZE(filt->taps), sizeof({{ type.name }}));
 	/* Now use the parsed B coefficients into the C structure */
 	for (int i = 0; i < filt->taps; i++) {
 		cJSON *b_coeff = cJSON_GetArrayItem(b_cjson, i);
@@ -70,13 +71,12 @@ void init_iir_from_json_{{ type.suffix }}(struct iir_{{ type.suffix }}_t *filt, 
 	 * should never happen but this stops any error from causing issue
 	 * downstream in the filter logic. */
 	filt->taps = (uint16_t)(b_taps < a_taps ? b_taps : a_taps);
-	filt->cycle = 0;
 	/* Allocate the memory for the coefficient arrays */
 	filt->b = ({{ type.name }} *)malloc(filt->taps * sizeof({{ type.name }}));
 	filt->a = ({{ type.name }} *)malloc(filt->taps * sizeof({{ type.name }}));
 	/* Allocate (and zero) buffers for the lookback/feedback buffers */
-	filt->in_buff = ({{ type.name }} *)calloc(filt->taps, sizeof({{ type.name }}));
-	filt->out_buff = ({{ type.name }} *)calloc(filt->taps, sizeof({{ type.name }}));
+	filt->in_buff = ({{ type.name }} *)calloc(FILTER_STATE_SIZE(filt->taps), sizeof({{ type.name }}));
+	filt->out_buff = ({{ type.name }} *)calloc(FILTER_STATE_SIZE(filt->taps), sizeof({{ type.name }}));
 	/* Now use the parsed coefficients to set the C struct arrays */
 	for (int i = 0; i < filt->taps; i++) {
 		cJSON *b_coeff = cJSON_GetArrayItem(b_cjson, i);
@@ -128,9 +128,8 @@ void init_sos_from_json_{{ type.suffix }}(struct sos_filter_{{ type.suffix }}_t 
 			section->a[2] =
 				({{ type.name }})cJSON_GetArrayItem(section_json, 5)->valuedouble;
 
-			memset(section->in_buff, 0, sizeof(section->in_buff));
-			memset(section->out_buff, 0, sizeof(section->out_buff));
-			section->cycle = 0;
+			section->x1 = section->x2 = ({{ type.name }})0;
+			section->y1 = section->y2 = ({{ type.name }})0;
 		}
 	}
 	printf("Loaded an SOS filter from the input JSON file.\n");

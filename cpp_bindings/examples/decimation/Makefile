@@ -5,6 +5,7 @@ N_TAPS = 100
 DECIMATION_RATE = 4
 INPUT_BIN = "results/input_data.bin"
 OUTPUT_BIN = "results/decimated_data.bin"
+INDEP_OUTPUT_BIN = "results/decimated_data_indep.bin"
 REGEN_INPUT_FILE ?= false
 
 # C parameters
@@ -13,7 +14,7 @@ CFLAGS = -Wall -O3
 DEFINES_LIST += F_S=$(SAMPLE_RATE)
 DEFINES_LIST += N_CHANNELS=$(N_CHANNELS)
 DEFINES_LIST += N_TAPS=$(N_TAPS)
-DEFINES_LIST += DECIMATION=$(DECIMATION_RATE)
+DEFINES_LIST += DECIMATION_RATE=$(DECIMATION_RATE)
 DEFINES_LIST += REGEN_INPUT_FILE=$(REGEN_INPUT_FILE)
 CFLAGS += $(addprefix -D, $(DEFINES_LIST))
 
@@ -37,6 +38,9 @@ decimation:
 run_all: decimation
 	./decimation_test
 	$(PY) $(PY_DATA_COMPARE_FILE) $(PY_DATA_COMPARE_ARGS)
+
+verify:
+	$(PY) $(PY_DATA_COMPARE_FILE) $(PY_DATA_COMPARE_ARGS) --check $(INDEP_OUTPUT_BIN)
 
 clean:
 	rm decimation_test

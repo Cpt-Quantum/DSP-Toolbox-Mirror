@@ -251,9 +251,10 @@ template <> struct fir_traits<float> {
 							  struct_type *filt, uint32_t len) {
 		fir_filter_float(data_in, data_out, filt, len);
 	}
-	static inline void decimate(float *data_in, float *data_out,
-								struct_type *filt, uint32_t len, uint8_t rate) {
-		fir_decimate_float(data_in, data_out, filt, len, rate);
+	static inline uint32_t decimate(float *data_in, float *data_out,
+									struct_type *filt, uint32_t len,
+									uint8_t rate) {
+		return fir_decimate_float(data_in, data_out, filt, len, rate);
 	}
 	static inline void create(struct_type *filt, cJSON *node) {
 		init_fir_from_json_float(filt, node);
@@ -268,9 +269,10 @@ template <> struct fir_traits<double> {
 							  struct_type *filt, uint32_t len) {
 		fir_filter_double(data_in, data_out, filt, len);
 	}
-	static inline void decimate(double *data_in, double *data_out,
-								struct_type *filt, uint32_t len, uint8_t rate) {
-		fir_decimate_double(data_in, data_out, filt, len, rate);
+	static inline uint32_t decimate(double *data_in, double *data_out,
+									struct_type *filt, uint32_t len,
+									uint8_t rate) {
+		return fir_decimate_double(data_in, data_out, filt, len, rate);
 	}
 	static inline void create(struct_type *filt, cJSON *node) {
 		init_fir_from_json_double(filt, node);
@@ -285,9 +287,10 @@ template <> struct fir_traits<int32_t> {
 							  struct_type *filt, uint32_t len) {
 		fir_filter_int32(data_in, data_out, filt, len);
 	}
-	static inline void decimate(int32_t *data_in, int32_t *data_out,
-								struct_type *filt, uint32_t len, uint8_t rate) {
-		fir_decimate_int32(data_in, data_out, filt, len, rate);
+	static inline uint32_t decimate(int32_t *data_in, int32_t *data_out,
+									struct_type *filt, uint32_t len,
+									uint8_t rate) {
+		return fir_decimate_int32(data_in, data_out, filt, len, rate);
 	}
 	static inline void create(struct_type *filt, cJSON *node) {
 		init_fir_from_json_int32(filt, node);
@@ -302,9 +305,10 @@ template <> struct fir_traits<int64_t> {
 							  struct_type *filt, uint32_t len) {
 		fir_filter_int64(data_in, data_out, filt, len);
 	}
-	static inline void decimate(int64_t *data_in, int64_t *data_out,
-								struct_type *filt, uint32_t len, uint8_t rate) {
-		fir_decimate_int64(data_in, data_out, filt, len, rate);
+	static inline uint32_t decimate(int64_t *data_in, int64_t *data_out,
+									struct_type *filt, uint32_t len,
+									uint8_t rate) {
+		return fir_decimate_int64(data_in, data_out, filt, len, rate);
 	}
 	static inline void create(struct_type *filt, cJSON *node) {
 		init_fir_from_json_int64(filt, node);
@@ -343,18 +347,19 @@ template <typename num_t> class fir {
 	/* Allow copying of the class, this is useful when needing a multitude of
 	 * the same filter for multi-channel filtering. */
 	fir(const fir &other) : filt_struct(new fir_t(), fir_deleter{false}) {
-		/* Initialise a new input buffer in the std::vector with the number of
-		 * taps as the number of elements */
-		in_buff_clone.assign(other.filt_struct->taps, (num_t)0);
+		/* Initialise a new input history buffer in the std::vector, sized for
+		 * the number of taps */
+		in_buff_clone.assign(FILTER_STATE_SIZE(other.filt_struct->taps),
+							 (num_t)0);
 		/* Get the pointer of the std::vector data and pass it to the struct's
 		 * pointer */
 		filt_struct->in_buff = in_buff_clone.data();
 		/* Get the pointer to the shared coefficients */
 		filt_struct->b = other.filt_struct->b;
-		/* Set the number of taps in the struct member and reset the cycle count
-		 * to 0 */
+		/* Set the number of taps in the struct member and reset the
+		 * decimation phase to 0 */
 		filt_struct->taps = other.filt_struct->taps;
-		filt_struct->cycle = 0;
+		filt_struct->decimation_phase = 0;
 	};
 	fir &operator=(const fir &other) {
 		if (this != &other) {
@@ -363,15 +368,16 @@ template <typename num_t> class fir {
 			 */
 			filt_struct = std::unique_ptr<fir_t, fir_deleter>(
 				new fir_t(), fir_deleter{false});
-			in_buff_clone.assign(other.filt_struct->taps, (num_t)0);
+			in_buff_clone.assign(FILTER_STATE_SIZE(other.filt_struct->taps),
+								 (num_t)0);
 			/* Set the struct pointer for the input buffer */
 			filt_struct->in_buff = in_buff_clone.data();
 			/* Get the pointer to the shared coefficients */
 			filt_struct->b = other.filt_struct->b;
-			/* Set the number of taps in the struct member and reset the cycle
-			 * count to 0 */
+			/* Set the number of taps in the struct member and reset the
+			 * decimation phase to 0 */
 			filt_struct->taps = other.filt_struct->taps;
-			filt_struct->cycle = 0;
+			filt_struct->decimation_phase = 0;
 		}
 		return *this;
 	};
@@ -379,12 +385,13 @@ template <typename num_t> class fir {
 	fir(fir &&) noexcept = default;
 	fir &operator=(fir &&) noexcept = default;
 	/* Constructors */
+	/* _in_buff must be zeroed and hold FILTER_STATE_SIZE(_taps) elements */
 	fir(num_t *_b, num_t *_in_buff, uint16_t _taps)
 		: filt_struct(new fir_t(), fir_deleter{false}) {
 		filt_struct->b = _b;
 		filt_struct->in_buff = _in_buff;
 		filt_struct->taps = _taps;
-		filt_struct->cycle = 0;
+		filt_struct->decimation_phase = 0;
 	};
 	fir(fir_t *_filt_struct) : filt_struct(_filt_struct, fir_deleter{false}) {};
 	fir(cJSON *node) : filt_struct(new fir_t(), fir_deleter{true}) {
@@ -396,10 +403,19 @@ template <typename num_t> class fir {
 		traits::filter(data_in.data(), data_out.data(), filt_struct.get(),
 					   length);
 	};
-	void fir_decimate(std::vector<num_t> &data_in, std::vector<num_t> &data_out,
-					  uint32_t length, uint8_t decimation_rate) {
-		traits::decimate(data_in.data(), data_out.data(), filt_struct.get(),
-						 length, decimation_rate);
+	/* Returns the number of output samples written */
+	uint32_t fir_decimate(std::vector<num_t> &data_in,
+						  std::vector<num_t> &data_out, uint32_t length,
+						  uint8_t decimation_rate) {
+		return traits::decimate(data_in.data(), data_out.data(),
+								filt_struct.get(), length, decimation_rate);
+	};
+	/* Pointer overload, allows filtering at an offset within a larger buffer
+	 * without copying the data into a separate std::vector */
+	uint32_t fir_decimate(num_t *data_in, num_t *data_out, uint32_t length,
+						  uint8_t decimation_rate) {
+		return traits::decimate(data_in, data_out, filt_struct.get(), length,
+								decimation_rate);
 	};
 	/* Getter methods for coefficients and taps */
 	std::vector<num_t> get_coefficients() const {
@@ -497,10 +513,12 @@ template <typename num_t> class iir_ba {
 	/* Allow copying of the class, this is useful when needing a multitude of
 	 * the same filter for multi-channel filtering. */
 	iir_ba(const iir_ba &other) : filt_struct(new iir_t(), iir_deleter{false}) {
-		/* Initialise a new input buffer in the std::vector with the number of
-		 * taps as the number of elements */
-		in_buff_clone.assign(other.filt_struct->taps, (num_t)0);
-		out_buff_clone.assign(other.filt_struct->taps, (num_t)0);
+		/* Initialise new input and output history buffers in the std::vectors,
+		 * sized for the number of taps */
+		in_buff_clone.assign(FILTER_STATE_SIZE(other.filt_struct->taps),
+							 (num_t)0);
+		out_buff_clone.assign(FILTER_STATE_SIZE(other.filt_struct->taps),
+							  (num_t)0);
 		/* Get the pointer of the std::vector data and pass it to the struct's
 		 * pointer */
 		filt_struct->in_buff = in_buff_clone.data();
@@ -508,20 +526,20 @@ template <typename num_t> class iir_ba {
 		/* Get the pointer to the shared coefficients */
 		filt_struct->a = other.filt_struct->a;
 		filt_struct->b = other.filt_struct->b;
-		/* Set the number of taps in the struct member and reset the cycle count
-		 * to 0 */
+		/* Set the number of taps in the struct member */
 		filt_struct->taps = other.filt_struct->taps;
-		filt_struct->cycle = 0;
 	}
 	iir_ba &operator=(const iir_ba &other) {
 		if (this != &other) {
 			/* Create the new object to point to */
 			filt_struct = std::unique_ptr<iir_t, iir_deleter>(
 				new iir_t(), iir_deleter{false});
-			/* Initialise a new input buffer in the std::vector with the number
-			 * of taps as the number of elements */
-			in_buff_clone.assign(other.filt_struct->taps, (num_t)0);
-			out_buff_clone.assign(other.filt_struct->taps, (num_t)0);
+			/* Initialise new input and output history buffers in the
+			 * std::vectors, sized for the number of taps */
+			in_buff_clone.assign(FILTER_STATE_SIZE(other.filt_struct->taps),
+								 (num_t)0);
+			out_buff_clone.assign(FILTER_STATE_SIZE(other.filt_struct->taps),
+								  (num_t)0);
 			/* Get the pointer of the std::vector data and pass it to the
 			 * struct's pointer */
 			filt_struct->in_buff = in_buff_clone.data();
@@ -529,10 +547,8 @@ template <typename num_t> class iir_ba {
 			/* Get the pointer to the shared coefficients */
 			filt_struct->a = other.filt_struct->a;
 			filt_struct->b = other.filt_struct->b;
-			/* Set the number of taps in the struct member and reset the cycle
-			 * count to 0 */
+			/* Set the number of taps in the struct member */
 			filt_struct->taps = other.filt_struct->taps;
-			filt_struct->cycle = 0;
 		}
 		return *this;
 	}
@@ -540,6 +556,8 @@ template <typename num_t> class iir_ba {
 	iir_ba(iir_ba &&) noexcept = default;
 	iir_ba &operator=(iir_ba &&) noexcept = default;
 	/* Constructors */
+	/* _in_buff and _out_buff must be zeroed and hold FILTER_STATE_SIZE(taps)
+	 * elements each */
 	iir_ba(num_t *_a, num_t *_b, num_t *_in_buff, num_t *_out_buff,
 		   uint16_t taps)
 		: filt_struct(new iir_t(), iir_deleter{false}) {

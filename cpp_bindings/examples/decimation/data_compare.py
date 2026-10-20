@@ -9,6 +9,8 @@ def main():
     parser.add_argument('--decimation', type=int, required=True)
     parser.add_argument('--input', type=str, required=True)
     parser.add_argument('--output', type=str, required=True)
+    parser.add_argument('--check', type=str, nargs='+',
+                        help='Other output files to check for an exact match against --output')
     args = parser.parse_args()
 
     # Load the binary file for the input data
@@ -20,6 +22,16 @@ def main():
     out_chunk_size = args.taps // args.decimation
     raw_out = np.fromfile(args.output, dtype=np.float32)
     out_matrix = raw_out.reshape(-1, args.channels, out_chunk_size)
+
+    # Check that the other benchmark path outputs match exactly
+    if args.check:
+        all_match = True
+        for filename in args.check:
+            raw_check = np.fromfile(filename, dtype=np.float32)
+            match = np.array_equal(raw_out, raw_check)
+            all_match &= match
+            print(f"{'PASS' if match else 'FAIL'}: {filename} matches {args.output}")
+        raise SystemExit(0 if all_match else 1)
 
     # 3. Extract Channel 0 for visual check
     ch0_in = in_matrix[:, 0, :].flatten()

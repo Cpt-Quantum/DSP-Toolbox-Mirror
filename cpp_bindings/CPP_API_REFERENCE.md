@@ -47,13 +47,14 @@ A wrapper for Finite Impulse Response filtering.
 
 ### Constructors
 
-* `fir(num_t *b, num_t *in_buff, uint16_t taps)`: Initializes with raw coefficient and delay line buffers.
+* `fir(num_t *b, num_t *in_buff, uint16_t taps)`: Initializes with raw coefficient and history buffers. `in_buff` must be zeroed and hold `FILTER_STATE_SIZE(taps)` elements.
 * `fir(cJSON *node)`: Initializes automatically from a cJSON object (e.g., loaded from a file).
 
 ### Methods
 
 * `void fir_filter(std::vector<num_t> &data_in, std::vector<num_t> &data_out, uint32_t length)`: Processes input data through the filter.
-* `void fir_decimate(std::vector<num_t> &data_in, std::vector<num_t> &data_out, uint32_t length, uint8_t decimation_rate)`: Filters and reduces sample rate.
+* `uint32_t fir_decimate(std::vector<num_t> &data_in, std::vector<num_t> &data_out, uint32_t length, uint8_t decimation_rate)`: Filters and reduces sample rate, returning the number of output samples written. `length` does not need to be a multiple of the rate; `data_out` must hold at least `ceil(length / decimation_rate)` samples.
+* `uint32_t fir_decimate(num_t *data_in, num_t *data_out, uint32_t length, uint8_t decimation_rate)`: Pointer overload of the above, for filtering at an offset within a larger buffer without copying.
 
 ---
 
@@ -63,7 +64,7 @@ A wrapper for Direct Form I (ba) Infinite Impulse Response filters.
 
 ### Constructors
 
-* `iir_ba(num_t *a, num_t *b, num_t *in_buff, num_t *out_buff, uint16_t taps)`: Initializes with raw buffers.
+* `iir_ba(num_t *a, num_t *b, num_t *in_buff, num_t *out_buff, uint16_t taps)`: Initializes with raw buffers. `in_buff` and `out_buff` must be zeroed and hold `FILTER_STATE_SIZE(taps)` elements each.
 * `iir_ba(cJSON *node)`: Initializes automatically from a cJSON object.
 
 ### Methods

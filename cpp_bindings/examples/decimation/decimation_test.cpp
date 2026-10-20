@@ -7,6 +7,7 @@
 #include <iosfwd>
 #include <iostream>
 #include <string>
+#include <vector>
 
 using namespace std;
 
@@ -52,7 +53,7 @@ template <typename num_t> class data_filter {
 				unsigned int _n_chunks, unsigned int _freq_bins,
 				unsigned int _n_channels, num_t _base_amplitude,
 				num_t _noise_variance, unsigned int _sample_rate)
-		: chunk_size(_chunk_size), n_channels(_n_channels),
+		: chunk_size(_chunk_size), n_channels(_n_channels), n_chunks(_n_chunks),
 		  sample_rate(_sample_rate),
 		  data_gen(_ifilename, _chunk_size, _n_chunks, _freq_bins, _n_channels,
 				   _base_amplitude, _noise_variance, _sample_rate),
@@ -62,25 +63,49 @@ template <typename num_t> class data_filter {
 	unsigned int generate_input_file(bool regenerate_if_exists) {
 		return data_gen.generate_input_file(regenerate_if_exists);
 	}
-	/* Function to filter the input data and work out performance of the code */
+	/* Function to filter the input data and work out performance of the code
+	 * for each of the memory organisation paths */
 	void run_benchmark(const string &json_filename,
-					   const string &output_filename, uint8_t decimation_rate) {
+					   const string &indep_output_filename,
+					   uint8_t decimation_rate) {
 
-		/* Create the filter objects */
+		/* Create the reference filter object, copied per channel in each path
+		 */
 		cout << "Loading FIR filter from " << json_filename << "..." << endl;
 		json_filter_parse json_object(json_filename);
 		fir<float> ref_filt(json_object.get_node("fir"));
 
-		vector<fir<float>> channel_filters;
-		channel_filters.reserve(n_channels);
-		for (unsigned int i = 0; i < n_channels; ++i) {
-			channel_filters.push_back(ref_filt);
-		}
+		unsigned int seq_steps = 0;
+		long long seq_ns = run_sequential(ref_filt, decimation_rate, seq_steps);
+		if (seq_ns < 0)
+			return;
+		print_results("A: Sequential (single reused chunk buffer)", seq_ns,
+					  seq_steps);
+
+		unsigned int ind_steps = 0;
+		long long ind_ns = run_independent(ref_filt, indep_output_filename,
+										   decimation_rate, ind_steps);
+		if (ind_ns < 0)
+			return;
+		print_results("C: Independent per-channel buffers", ind_ns, ind_steps);
+
+		cout << "\n--- Comparison ---" << endl;
+		cout << "C / A compute time ratio: " << (double)ind_ns / seq_ns << endl;
+	}
+
+  private:
+	/* Path A: read, decimate and write one chunk at a time, reusing a single
+	 * chunk buffer for every channel. Returns the compute time in ns, or -1 on
+	 * failure */
+	long long run_sequential(const fir<float> &ref_filt,
+							 uint8_t decimation_rate,
+							 unsigned int &chunks_processed) {
+		vector<fir<float>> channel_filters(n_channels, ref_filt);
 
 		/* Open the input and output data files */
 		if (!data_read.open_stream() || !data_write.open_stream()) {
 			cout << "Failed to open input/output data files." << endl;
-			return;
+			return -1;
 		}
 
 		/* Set up the data chunk arrays */
@@ -88,12 +113,12 @@ template <typename num_t> class data_filter {
 		unsigned int out_chunk_size = chunk_size / decimation_rate;
 		vector<float> output_chunk(out_chunk_size);
 		/* Adjust the set chunk size for the output data */
-		data_write.chunk_size = chunk_size / decimation_rate;
+		data_write.chunk_size = out_chunk_size;
 
-		long long total_compute_microseconds = 0;
-		unsigned int chunks_processed = 0;
+		long long total_compute_ns = 0;
+		chunks_processed = 0;
 
-		cout << "Running sequential read, compute, and write benchmark..."
+		cout << "\nRunning path A: sequential read, compute, and write..."
 			 << endl;
 
 		while (true) {
@@ -115,8 +140,8 @@ template <typename num_t> class data_filter {
 
 				/* Stop the benchmarking timer */
 				auto end = chrono::high_resolution_clock::now();
-				total_compute_microseconds +=
-					chrono::duration_cast<chrono::microseconds>(end - start)
+				total_compute_ns +=
+					chrono::duration_cast<chrono::nanoseconds>(end - start)
 						.count();
 
 				/* Write the output to file */
@@ -132,12 +157,102 @@ template <typename num_t> class data_filter {
 		data_write.close_stream();
 		data_read.close_stream();
 
-		/* Print out benchmark results */
-		double total_time_sec = total_compute_microseconds / 1000000.0;
-		double simulated_data_sec =
-			(double)(chunks_processed * chunk_size) / sample_rate;
+		return total_compute_ns;
+	}
 
-		cout << "\n--- Benchmark Results ---" << endl;
+	/* Path C: each channel's whole signal is held in its own contiguous
+	 * buffer. The data is processed in the same order as path A (time step
+	 * outer, channel inner), so only the memory organisation differs. Returns
+	 * the compute time in ns, or -1 on failure */
+	long long run_independent(const fir<float> &ref_filt,
+							  const string &output_filename,
+							  uint8_t decimation_rate,
+							  unsigned int &chunks_processed) {
+		vector<fir<float>> channel_filters(n_channels, ref_filt);
+		unsigned int out_chunk_size = chunk_size / decimation_rate;
+
+		/* Allocate the per-channel input and output buffers */
+		vector<vector<float>> in_ch(n_channels,
+									vector<float>(n_chunks * chunk_size));
+		vector<vector<float>> out_ch(n_channels,
+									 vector<float>(n_chunks * out_chunk_size));
+
+		/* De-interleave the time-major input file into the per-channel
+		 * buffers (untimed) */
+		if (!data_read.open_stream()) {
+			cout << "Failed to open input data file." << endl;
+			return -1;
+		}
+		vector<float> input_chunk(chunk_size);
+		chunks_processed = 0;
+		for (unsigned int step = 0; step < n_chunks; ++step) {
+			bool eof_reached = false;
+			for (unsigned int ch = 0; ch < n_channels; ++ch) {
+				if (!data_read.read_chunk(input_chunk)) {
+					eof_reached = true;
+					break;
+				}
+				copy(input_chunk.begin(), input_chunk.end(),
+					 in_ch[ch].begin() + (size_t)step * chunk_size);
+			}
+			if (eof_reached)
+				break;
+			chunks_processed++;
+		}
+		data_read.close_stream();
+
+		cout << "\nRunning path C: compute from independent per-channel "
+				"buffers..."
+			 << endl;
+
+		long long total_compute_ns = 0;
+		for (unsigned int step = 0; step < chunks_processed; ++step) {
+			for (unsigned int ch = 0; ch < n_channels; ++ch) {
+				/* Start timer for benchmarking only around computation section
+				 */
+				auto start = chrono::high_resolution_clock::now();
+
+				channel_filters[ch].fir_decimate(
+					&in_ch[ch][(size_t)step * chunk_size],
+					&out_ch[ch][(size_t)step * out_chunk_size], chunk_size,
+					decimation_rate);
+
+				/* Stop the benchmarking timer */
+				auto end = chrono::high_resolution_clock::now();
+				total_compute_ns +=
+					chrono::duration_cast<chrono::nanoseconds>(end - start)
+						.count();
+			}
+		}
+
+		/* Re-interleave the output into the time-major file layout so it can
+		 * be compared against path A (untimed) */
+		dsp_bin_write<num_t> indep_write(output_filename, out_chunk_size);
+		if (!indep_write.open_stream()) {
+			cout << "Failed to open output data file." << endl;
+			return -1;
+		}
+		vector<float> output_chunk(out_chunk_size);
+		for (unsigned int step = 0; step < chunks_processed; ++step) {
+			for (unsigned int ch = 0; ch < n_channels; ++ch) {
+				auto it = out_ch[ch].begin() + (size_t)step * out_chunk_size;
+				copy(it, it + out_chunk_size, output_chunk.begin());
+				indep_write.write_chunk(output_chunk);
+			}
+		}
+		indep_write.close_stream();
+
+		return total_compute_ns;
+	}
+
+	/* Print out benchmark results for a single path */
+	void print_results(const string &name, long long compute_ns,
+					   unsigned int chunks_processed) {
+		double total_time_sec = compute_ns / 1e9;
+		double simulated_data_sec =
+			(double)chunks_processed * chunk_size / sample_rate;
+
+		cout << "\n--- Benchmark Results: " << name << " ---" << endl;
 		cout << "Time Steps Processed: " << chunks_processed << " ("
 			 << (chunks_processed * n_channels) << " total channel chunks)"
 			 << endl;
@@ -147,12 +262,12 @@ template <typename num_t> class data_filter {
 			 << endl;
 
 		if (total_time_sec < simulated_data_sec) {
-			cout << "\nRESULT: PASS." << endl;
+			cout << "RESULT: PASS." << endl;
 			cout << "CPU Load: "
 				 << (total_time_sec / simulated_data_sec) * 100.0 << "%"
 				 << endl;
 		} else {
-			cout << "\nRESULT: FAIL. The filter cannot keep up with real-time."
+			cout << "RESULT: FAIL. The filter cannot keep up with real-time."
 				 << endl;
 		}
 	}
@@ -161,6 +276,7 @@ template <typename num_t> class data_filter {
 /* Define the data filenames */
 const string input_filename = "results/input_data.bin";
 const string output_filename = "results/decimated_data.bin";
+const string indep_output_filename = "results/decimated_data_indep.bin";
 /* Filter spec filename */
 const string json_filename("fir.json");
 
@@ -174,7 +290,7 @@ int main(void) {
 	if (eeg.generate_input_file(REGEN_INPUT_FILE) != 0) {
 		return -1;
 	}
-	eeg.run_benchmark(json_filename, output_filename, DECIMATION_RATE);
+	eeg.run_benchmark(json_filename, indep_output_filename, DECIMATION_RATE);
 
 	return 0;
 }

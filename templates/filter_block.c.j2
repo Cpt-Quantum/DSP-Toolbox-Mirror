@@ -1,0 +1,32 @@
+/* Number of outputs calculated together, each with its own accumulator. As the
+ * outputs are independent the compiler can vectorise across them, while each
+ * output's terms are still summed in the order b[0] to b[N-1] */
+#define FILTER_OUTPUT_GROUP 32
+
+/* Calculates n_out outputs from a linear history buffer, where output k is
+ * the sum of b[i] * x[k * stride - i] for i = 0 to N - 1. x points to the
+ * newest sample used by output 0, and must have at least N - 1 samples of
+ * history before it */
+static inline void filter_block_{{ type.suffix }}(const {{ type.name }} *b, uint32_t N, const {{ type.name }} *x,
+									  uint32_t stride, {{ type.name }} *y, uint32_t n_out) {
+	for (uint32_t k0 = 0; k0 < n_out; k0 += FILTER_OUTPUT_GROUP) {
+		const uint32_t count = (n_out - k0) < FILTER_OUTPUT_GROUP
+								   ? (n_out - k0)
+								   : FILTER_OUTPUT_GROUP;
+		{{ type.name }} acc[FILTER_OUTPUT_GROUP] = {0};
+		const {{ type.name }} *x0 = x + k0 * stride;
+
+		for (uint32_t i = 0; i < N; i++) {
+			const {{ type.name }} bi = b[i];
+			const {{ type.name }} *xi = x0 - i;
+			/* size_t indexing, as GCC can't vectorise the strided access when
+			 * the 32 bit index could wrap */
+			for (size_t k = 0; k < count; k++) {
+				acc[k] = acc[k] + (bi * xi[k * (size_t)stride]);
+			}
+		}
+		for (uint32_t k = 0; k < count; k++) {
+			y[k0 + k] = acc[k];
+		}
+	}
+}

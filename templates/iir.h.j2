@@ -7,19 +7,21 @@ extern "C" {
 
 #include <stdint.h>
 
+#include "filter_shared.h"
+
 struct iir_{{ type.suffix }}_t {
 	{{ type.name }} *a;
 	{{ type.name }} *b;
+	/* Input and output histories, FILTER_STATE_SIZE(taps) elements each */
 	{{ type.name }} *in_buff, *out_buff;
 	uint16_t taps;
-	uint16_t cycle;
 };
 
 /* Definitions for IIR filters in biquad/second order sections format */
 struct biquad_section_{{ type.suffix }}_t {
 	{{ type.name }} a[3], b[3];
-	{{ type.name }} in_buff[3], out_buff[3];
-	uint16_t cycle;
+	/* Previous two inputs x[n-1], x[n-2] and outputs y[n-1], y[n-2] */
+	{{ type.name }} x1, x2, y1, y2;
 };
 struct sos_filter_{{ type.suffix }}_t {
 	struct biquad_section_{{ type.suffix }}_t *biquad_section;
