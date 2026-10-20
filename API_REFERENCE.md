@@ -188,4 +188,6 @@ Automated test signal generation based on frequency profiles in `spectrum_gen_{{
 
 | Function | Description |
 | :--- | :--- |
-| `generate_spectrum_waveform_{{suffix}}(...)` | Generates a complex waveform containing a frequency sweep or noise based on a profile (Flat, Low Decay, High Decay, Bandpass, etc.). |
+| `generate_spectrum_waveform_{{suffix}}(t, x, data_length, sample_rate, num_steps, profile, base_amplitude, noise_variance, seed)` | Fills `x` with `num_steps` sine waves evenly spaced up to the Nyquist frequency, with amplitudes shaped by `profile` (Flat, Low Decay, High Decay, Bandpass, etc.) and scaled by `base_amplitude`, plus Gaussian noise with variance `noise_variance` (0 for none). Also fills `t` with the sample times. |
+
+The sine waves repeat every `2 * num_steps` samples, so only one period is calculated and then repeated, which keeps generation fast and the phase exact for long waveforms. The noise comes from a built-in pseudo random generator seeded with `seed`, so the same seed always gives the same waveform. Use a different seed for each channel that should have independent noise.

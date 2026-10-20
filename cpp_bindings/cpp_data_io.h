@@ -50,6 +50,8 @@ template <typename num_t> class dsp_bin_gen : dsp_bin_base {
 	num_t base_amplitude;
 	num_t noise_variance;
 	unsigned int sample_rate;
+	/* Channel i's noise is generated from seed + i */
+	uint32_t seed;
 
   public:
 	unsigned int generate_input_file(bool regenerate_if_exists) {
@@ -81,7 +83,7 @@ template <typename num_t> class dsp_bin_gen : dsp_bin_base {
 				waveform_x<num_t> x(wave_length);
 				x.gen_spectrum(t.t, wave_length, sample_rate, freq_bins,
 							   AMPLITUDE_SPECTRUM_FLAT, base_amplitude,
-							   noise_variance);
+							   noise_variance, seed + i);
 				/* The binary file output is grouped into chunks for each
 				 * channel, rather than storing each channel contiguously. This
 				 * drastically improves performance when filtering there data,
@@ -108,11 +110,12 @@ template <typename num_t> class dsp_bin_gen : dsp_bin_base {
 	dsp_bin_gen(std::string _filename, unsigned int _chunk_size,
 				unsigned int _n_chunks, unsigned int _freq_bins,
 				unsigned int _n_channels, num_t _base_amplitude,
-				num_t _noise_variance, unsigned int _sample_rate)
+				num_t _noise_variance, unsigned int _sample_rate,
+				uint32_t _seed = 0)
 		: dsp_bin_base(_filename), chunk_size(_chunk_size), n_chunks(_n_chunks),
 		  freq_bins(_freq_bins), n_channels(_n_channels),
 		  base_amplitude(_base_amplitude), noise_variance(_noise_variance),
-		  sample_rate(_sample_rate) {};
+		  sample_rate(_sample_rate), seed(_seed) {};
 };
 
 template <typename num_t> class dsp_bin_write : dsp_bin_base {

@@ -35,7 +35,7 @@ A container and generator class for real-valued waveforms.
 
 * `void add_wave_properties(num_t amplitude, num_t offset, num_t frequency, num_t phase, WAVEFORM_FUNC_E function_type)`: Adds a new superposition component (Sine/Cos) to the waveform definition.
 * `void gen_waveform(std::vector<num_t> &t)`: Populates the internal `x` buffer based on the provided time vector `t`.
-* `void gen_spectrum(...)`: Generates a complex test pattern based on a frequency profile.
+* `void gen_spectrum(std::vector<num_t> &t, std::size_t length, uint32_t f_s, uint32_t num_steps, AMPLITUDE_SPECTRUM_E profile, num_t base_amplitude, num_t noise_variance, uint32_t seed)`: Fills the waveform with `num_steps` sine waves shaped by `profile`, plus Gaussian noise with variance `noise_variance` that is reproducible from `seed`. See `generate_spectrum_waveform` in the [C API reference](../API_REFERENCE.md#spectrum-generation).
 * `void scale(num_t factor)`: Multiplies all values in the waveform by `factor`.
 * `void divide(num_t factor)`: Divides all values in the waveform by `factor`.
 * `void mask(uint32_t bit_width)`: Saturates values to the range of a signed integer of `bit_width`.

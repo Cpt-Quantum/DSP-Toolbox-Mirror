@@ -64,8 +64,9 @@ template <> struct waveform_traits<float> {
 	}
 	static inline void gen_spectrum(float *t, float *y, std::size_t len,
 									uint32_t f_s, uint32_t num_steps,
-									AMPLITUDE_SPECTRUM_E profile, float base_amplitude, float noise_variance) {
-		generate_spectrum_waveform_float(t, y, len, f_s, num_steps, profile, base_amplitude, noise_variance);
+									AMPLITUDE_SPECTRUM_E profile, float base_amplitude, float noise_variance,
+									uint32_t seed) {
+		generate_spectrum_waveform_float(t, y, len, f_s, num_steps, profile, base_amplitude, noise_variance, seed);
 	}
 	static inline void scale(float *x, float factor, uint32_t len) {
 		scale_waveform_float(x, factor, len);
@@ -87,8 +88,9 @@ template <> struct waveform_traits<double> {
 	}
 	static inline void gen_spectrum(double *t, double *y, std::size_t len,
 									uint32_t f_s, uint32_t num_steps,
-									AMPLITUDE_SPECTRUM_E profile, double base_amplitude, double noise_variance) {
-		generate_spectrum_waveform_double(t, y, len, f_s, num_steps, profile, base_amplitude, noise_variance);
+									AMPLITUDE_SPECTRUM_E profile, double base_amplitude, double noise_variance,
+									uint32_t seed) {
+		generate_spectrum_waveform_double(t, y, len, f_s, num_steps, profile, base_amplitude, noise_variance, seed);
 	}
 	static inline void scale(double *x, double factor, uint32_t len) {
 		scale_waveform_double(x, factor, len);
@@ -110,8 +112,9 @@ template <> struct waveform_traits<int32_t> {
 	}
 	static inline void gen_spectrum(int32_t *t, int32_t *y, std::size_t len,
 									uint32_t f_s, uint32_t num_steps,
-									AMPLITUDE_SPECTRUM_E profile, int32_t base_amplitude, int32_t noise_variance) {
-		generate_spectrum_waveform_int32(t, y, len, f_s, num_steps, profile, base_amplitude, noise_variance);
+									AMPLITUDE_SPECTRUM_E profile, int32_t base_amplitude, int32_t noise_variance,
+									uint32_t seed) {
+		generate_spectrum_waveform_int32(t, y, len, f_s, num_steps, profile, base_amplitude, noise_variance, seed);
 	}
 	static inline void scale(int32_t *x, int32_t factor, uint32_t len) {
 		scale_waveform_int32(x, factor, len);
@@ -133,8 +136,9 @@ template <> struct waveform_traits<int64_t> {
 	}
 	static inline void gen_spectrum(int64_t *t, int64_t *y, std::size_t len,
 									uint32_t f_s, uint32_t num_steps,
-									AMPLITUDE_SPECTRUM_E profile, int64_t base_amplitude, int64_t noise_variance) {
-		generate_spectrum_waveform_int64(t, y, len, f_s, num_steps, profile, base_amplitude, noise_variance);
+									AMPLITUDE_SPECTRUM_E profile, int64_t base_amplitude, int64_t noise_variance,
+									uint32_t seed) {
+		generate_spectrum_waveform_int64(t, y, len, f_s, num_steps, profile, base_amplitude, noise_variance, seed);
 	}
 	static inline void scale(int64_t *x, int64_t factor, uint32_t len) {
 		scale_waveform_int64(x, factor, len);
@@ -179,9 +183,10 @@ template <typename num_t> class waveform_x {
 		}
 	};
 	void gen_spectrum(std::vector<num_t> &t, std::size_t length, uint32_t f_s,
-					  uint32_t num_steps, AMPLITUDE_SPECTRUM_E profile, num_t base_amplitude, num_t noise_variance) {
+					  uint32_t num_steps, AMPLITUDE_SPECTRUM_E profile, num_t base_amplitude, num_t noise_variance,
+					  uint32_t seed) {
 		traits::gen_spectrum(t.data(), x.data(), length, f_s, num_steps,
-							 profile, base_amplitude, noise_variance);
+							 profile, base_amplitude, noise_variance, seed);
 	};
 	void scale(num_t factor) { traits::scale(x.data(), factor, wave_length); }
 	void divide(num_t factor) { traits::divide(x.data(), factor, wave_length); }

@@ -24,6 +24,6 @@ int main(void) {
 	waveform_x<int64_t> x(DATA_LENGTH);
 	waveform_t<int64_t> t(F_S, DATA_LENGTH);
 	x.gen_spectrum(t.t, DATA_LENGTH, F_S, N_FREQ_BINS, AMPLITUDE_SPECTRUM_FLAT,
-				   BASE_AMPLITUDE, NOISE_VARIANCE);
+				   BASE_AMPLITUDE, NOISE_VARIANCE, 0);
 	cout << "Power of the spectrum: " << spectrum_power_calc(x.x) << endl;
 }
