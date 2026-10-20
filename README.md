@@ -1,6 +1,6 @@
 # DSP Toolbox
 
-![FIR filtered data example](example_filter.png)
+![Filter benchmark example](filter_benchmark.png)
 
 This repository contains a collection of tools that aid in the development and
 design of signal processing algorithms. There are filter implementations in C
