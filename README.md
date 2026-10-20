@@ -35,6 +35,26 @@ functions in the filters, see the options in
 - [C functionality](API_REFERENCE.md)
 - [C++ bindings](/cpp_bindings/CPP_API_REFERENCE.md)
 
+# C++ examples
+
+Examples using the C++ bindings are in `cpp_bindings/examples/`. Generate the C
+sources first (see above), then build each example with `make` from inside its
+folder:
+
+| Example | Build | Description |
+| :--- | :--- | :--- |
+| `decimation` | `make decimation` | Benchmarks FIR decimation of 288 channels on a single thread, comparing two memory layouts: one reused chunk buffer (path A) and a buffer per channel (path B). `make verify` checks that both paths give identical output. |
+| `multithread` | `make multithread` | Benchmarks FIR, IIR (SOS) and IIR (direct form) filters designed to the same lowpass specification, comparing 1 thread against `N_THREADS` (default 4) with the channels split evenly across the threads. Checks that the multi-threaded output is identical. |
+| `spectrum_test` | `make spectrum` | Generates a test spectrum and prints its power. |
+| `waveform_gen` | `make spectrum` | Generates multi-channel waveforms to a CSV file, plotted with `plot_waveform_gen.py`. |
+
+The `decimation` and `multithread` examples also have a `run_all` target that
+runs the benchmark and then plots the results. They generate a large input
+data file (around 230 MB) in their `results/` folder on the first run, and
+reuse it afterwards unless built with `REGEN_INPUT_FILE=true`. The filter
+designs are stored in JSON files next to each example, and can be regenerated
+with the `filter_design.py` script in that folder.
+
 # cJSON
 
 This project uses the cJSON library for parsing filters exported in JSON format.
@@ -58,7 +78,7 @@ development in general.
 # Python packages
 
 This project uses python scripts for generating filter coefficients/structures,
-as well as interpeting results. As a result there are a few dependencies that
+as well as interpreting results. As a result there are a few dependencies that
 you will need:
 
 - jinja2

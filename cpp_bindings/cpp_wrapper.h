@@ -403,6 +403,11 @@ template <typename num_t> class fir {
 		traits::filter(data_in.data(), data_out.data(), filt_struct.get(),
 					   length);
 	};
+	/* Pointer overload, allows filtering at an offset within a larger buffer
+	 * without copying the data into a separate std::vector */
+	void fir_filter(num_t *data_in, num_t *data_out, uint32_t length) {
+		traits::filter(data_in, data_out, filt_struct.get(), length);
+	};
 	/* Returns the number of output samples written */
 	uint32_t fir_decimate(std::vector<num_t> &data_in,
 						  std::vector<num_t> &data_out, uint32_t length,
@@ -578,6 +583,11 @@ template <typename num_t> class iir_ba {
 		traits::filter(data_in.data(), data_out.data(), filt_struct.get(),
 					   length);
 	};
+	/* Pointer overload, allows filtering at an offset within a larger buffer
+	 * without copying the data into a separate std::vector */
+	void iir_filter(num_t *data_in, num_t *data_out, uint32_t length) {
+		traits::filter(data_in, data_out, filt_struct.get(), length);
+	};
 	/* Getter methods for coefficients and taps */
 	std::vector<num_t> get_a_coefficients() const {
 		return std::vector<num_t>(filt_struct->a,
@@ -737,6 +747,11 @@ template <typename num_t> class iir_sos {
 					uint32_t length) {
 		traits::filter(data_in.data(), data_out.data(), filt_struct.get(),
 					   length);
+	};
+	/* Pointer overload, allows filtering at an offset within a larger buffer
+	 * without copying the data into a separate std::vector */
+	void iir_filter(num_t *data_in, num_t *data_out, uint32_t length) {
+		traits::filter(data_in, data_out, filt_struct.get(), length);
 	};
 	/* Getter methods for coefficients, gain and sections */
 	std::vector<biquad_coefficients<num_t>> get_sections() const {

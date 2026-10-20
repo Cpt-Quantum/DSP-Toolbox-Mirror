@@ -87,10 +87,10 @@ template <typename num_t> class data_filter {
 										   decimation_rate, ind_steps);
 		if (ind_ns < 0)
 			return;
-		print_results("C: Independent per-channel buffers", ind_ns, ind_steps);
+		print_results("B: Independent per-channel buffers", ind_ns, ind_steps);
 
 		cout << "\n--- Comparison ---" << endl;
-		cout << "C / A compute time ratio: " << (double)ind_ns / seq_ns << endl;
+		cout << "B / A compute time ratio: " << (double)ind_ns / seq_ns << endl;
 	}
 
   private:
@@ -160,7 +160,7 @@ template <typename num_t> class data_filter {
 		return total_compute_ns;
 	}
 
-	/* Path C: each channel's whole signal is held in its own contiguous
+	/* Path B: each channel's whole signal is held in its own contiguous
 	 * buffer. The data is processed in the same order as path A (time step
 	 * outer, channel inner), so only the memory organisation differs. Returns
 	 * the compute time in ns, or -1 on failure */
@@ -201,7 +201,7 @@ template <typename num_t> class data_filter {
 		}
 		data_read.close_stream();
 
-		cout << "\nRunning path C: compute from independent per-channel "
+		cout << "\nRunning path B: compute from independent per-channel "
 				"buffers..."
 			 << endl;
 

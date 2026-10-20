@@ -18,6 +18,7 @@ All wrapper classes are templates that support the following numerical types (`n
 * [IIR Filters (Direct Form) (`iir_ba`)](#iir-filters-direct-form-iir_ba)
 * [IIR Filters (SOS/Biquad) (`iir_sos`)](#iir-filters-sosbiquad-iir_sos)
 * [JSON Parsing (`json_filter_parse`)](#json-parsing-json_filter_parse)
+* [Copying Filters (Multi-channel and Multi-threaded Use)](#copying-filters-multi-channel-and-multi-threaded-use)
 
 ---
 
@@ -53,6 +54,7 @@ A wrapper for Finite Impulse Response filtering.
 ### Methods
 
 * `void fir_filter(std::vector<num_t> &data_in, std::vector<num_t> &data_out, uint32_t length)`: Processes input data through the filter.
+* `void fir_filter(num_t *data_in, num_t *data_out, uint32_t length)`: Pointer overload of the above, for filtering at an offset within a larger buffer without copying.
 * `uint32_t fir_decimate(std::vector<num_t> &data_in, std::vector<num_t> &data_out, uint32_t length, uint8_t decimation_rate)`: Filters and reduces sample rate, returning the number of output samples written. `length` does not need to be a multiple of the rate; `data_out` must hold at least `ceil(length / decimation_rate)` samples.
 * `uint32_t fir_decimate(num_t *data_in, num_t *data_out, uint32_t length, uint8_t decimation_rate)`: Pointer overload of the above, for filtering at an offset within a larger buffer without copying.
 
@@ -70,6 +72,7 @@ A wrapper for Direct Form I (ba) Infinite Impulse Response filters.
 ### Methods
 
 * `void iir_filter(std::vector<num_t> &data_in, std::vector<num_t> &data_out, uint32_t length)`: Processes input data.
+* `void iir_filter(num_t *data_in, num_t *data_out, uint32_t length)`: Pointer overload of the above, for filtering at an offset within a larger buffer without copying.
 
 ---
 
@@ -85,6 +88,7 @@ A wrapper for Second Order Sections (SOS) IIR filters, which are more numericall
 ### Methods
 
 * `void iir_filter(std::vector<num_t> &data_in, std::vector<num_t> &data_out, uint32_t length)`: Processes input data through all sections.
+* `void iir_filter(num_t *data_in, num_t *data_out, uint32_t length)`: Pointer overload of the above, for filtering at an offset within a larger buffer without copying.
 
 ---
 
@@ -100,6 +104,19 @@ A helper class for managing cJSON file lifecycles and node extraction.
 
 * `cJSON *get_root()`: Returns the root node of the parsed JSON.
 * `cJSON *get_node(const std::string &node_string)`: Retrieves a specific node by name.
+
+---
+
+## Copying Filters (Multi-channel and Multi-threaded Use)
+
+To filter many channels with the same design, load one reference filter and copy it once per channel, e.g. `std::vector<fir<float>> channel_filters(n_channels, ref_filt);`.
+
+* Copies **share** the reference filter's coefficients, which are only ever read. The reference filter must outlive all of its copies.
+* Each copy has its **own** filter state:
+  * `fir` and `iir_ba` copies start with zeroed history buffers (and, for `fir`, a reset decimation phase).
+  * `iir_sos` copies take a copy of the reference filter's current section state, so copy from a filter that hasn't been run yet to start from zero.
+
+Because the only shared data is read-only, different copies can be run on different threads at the same time without locking. A single filter object must not be used from more than one thread at once. See `examples/multithread` for an example that splits channels across threads.
 
 ---
 
