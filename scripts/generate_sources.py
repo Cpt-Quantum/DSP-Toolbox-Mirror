@@ -1,3 +1,4 @@
+import argparse
 import os
 from jinja2 import Environment, FileSystemLoader
 
@@ -56,7 +57,28 @@ filter_templates = [
 ]
 
 
-def generate(output_dir: str, templates: list):
+# Functions used by the filters to copy into, and shift, their history buffers.
+# None selects a plain copy loop written into the generated code instead
+STDLIB_COPY = {"memcpy": "memcpy", "memmove": "memmove", "includes": ["<string.h>"]}
+
+
+def copy_options(args) -> dict:
+    """Resolve the copy functions for the filter history buffers from the
+    command line arguments, falling back to the standard library (or the
+    built in copy loops with --no-stdlib) for any that aren't specified"""
+    stdlib = not args.no_stdlib
+    memcpy = args.memcpy or ("memcpy" if stdlib else None)
+    memmove = args.memmove or ("memmove" if stdlib else None)
+    includes = []
+    if "memcpy" in (memcpy, memmove) or "memmove" in (memcpy, memmove):
+        includes.append("<string.h>")
+    if args.copy_header:
+        header = args.copy_header
+        includes.append(header if header.startswith("<") else f'"{header}"')
+    return {"memcpy": memcpy, "memmove": memmove, "includes": includes}
+
+
+def generate(output_dir: str, templates: list, copy: dict = STDLIB_COPY):
     # Templates are in the 'templates' directory
     env = Environment(loader=FileSystemLoader("templates"))
 
@@ -71,7 +93,7 @@ def generate(output_dir: str, templates: list):
                 output_path = os.path.join(output_dir, output_name)
 
                 print(f"Generating {output_path}...")
-                content = template.render(type=config)
+                content = template.render(type=config, copy=copy)
                 with open(output_path, "w") as f:
                     f.write(content)
             except Exception as e:
@@ -79,5 +101,48 @@ def generate(output_dir: str, templates: list):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Generate the typed C sources from the jinja2 templates. "
+        "Run from the root of the project."
+    )
+    copy_group = parser.add_argument_group(
+        "filter copy functions",
+        "The FIR and IIR filters copy new samples into, and shift, their "
+        "history buffers. By default memcpy/memmove from the C standard "
+        "library are used.",
+    )
+    copy_group.add_argument(
+        "--no-stdlib",
+        action="store_true",
+        help="use plain copy loops instead of the C standard library, e.g. "
+        "for MCUs without one",
+    )
+    copy_group.add_argument(
+        "--memcpy",
+        metavar="FUNC",
+        help="function with the same signature as memcpy, used to copy new "
+        "samples into the history buffers",
+    )
+    copy_group.add_argument(
+        "--memmove",
+        metavar="FUNC",
+        help="function with the same signature as memmove, used to shift the "
+        "history buffers (the regions overlap, with the destination first)",
+    )
+    copy_group.add_argument(
+        "--copy-header",
+        metavar="HEADER",
+        help="header declaring the --memcpy/--memmove functions",
+    )
+    args = parser.parse_args()
+    if args.copy_header and not (args.memcpy or args.memmove):
+        parser.error("--copy-header needs --memcpy and/or --memmove")
+
+    copy = copy_options(args)
+    print(
+        "Filter copies: memcpy -> {}, memmove -> {}".format(
+            copy["memcpy"] or "built in loop", copy["memmove"] or "built in loop"
+        )
+    )
     generate("inc", inc_templates)
-    generate("filter", filter_templates)
+    generate("filter", filter_templates, copy)

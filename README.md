@@ -25,6 +25,11 @@ files. This can be done from the root of the project as:
 python scripts/generate_sources.py
 ```
 
+For targets without a C standard library (e.g. MCUs), or to use your own copy
+functions in the filters, see the options in
+`python scripts/generate_sources.py --help` and the
+[C API documentation](API_REFERENCE.md#generation-options-copy-functions).
+
 # API documentation
 
 - [C functionality](API_REFERENCE.md)

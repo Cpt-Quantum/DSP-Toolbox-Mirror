@@ -1,7 +1,10 @@
 #include "iir_{{ type.suffix }}.h"
 
+#include <stddef.h>
 #include <stdint.h>
-#include <string.h>
+{%- for header in copy.includes %}
+#include {{ header }}
+{%- endfor %}
 
 /* The input and output history buffers each hold the previous taps - 1
  * samples, followed by space for a block of FILTER_BLOCK_SIZE new samples */
@@ -19,7 +22,7 @@ void iir_filter_{{ type.suffix }}({{ type.name }} *data_in, {{ type.name }} *dat
 
 		/* The feedforward terms don't depend on previous outputs, so are
 		 * calculated for the whole block at once into data_out */
-		memcpy(&in_work[H], data_in, n * sizeof({{ type.name }}));
+		filter_copy_{{ type.suffix }}(&in_work[H], data_in, n);
 		filter_block_{{ type.suffix }}(filter->b, N, &in_work[H], 1, data_out, n);
 
 		/* The feedback terms are recursive, so are calculated per sample */
@@ -34,8 +37,8 @@ void iir_filter_{{ type.suffix }}({{ type.name }} *data_in, {{ type.name }} *dat
 			data_out[c] = acc;
 		}
 
-		memmove(in_work, &in_work[n], H * sizeof({{ type.name }}));
-		memmove(out_work, &out_work[n], H * sizeof({{ type.name }}));
+		filter_shift_{{ type.suffix }}(in_work, &in_work[n], H);
+		filter_shift_{{ type.suffix }}(out_work, &out_work[n], H);
 
 		data_in += n;
 		data_out += n;

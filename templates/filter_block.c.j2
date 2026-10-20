@@ -1,20 +1,50 @@
-/* Number of outputs calculated together, each with its own accumulator. As the
- * outputs are independent the compiler can vectorise across them, while each
- * output's terms are still summed in the order b[0] to b[N-1] */
-#define FILTER_OUTPUT_GROUP 32
+
+/* The copy functions below are chosen when the sources are generated, see
+ * python scripts/generate_sources.py --help */
+
+/* Copies n elements into the history buffer */
+static inline void filter_copy_{{ type.suffix }}({{ type.name }} *dst, const {{ type.name }} *src, uint32_t n) {
+{%- if copy.memcpy %}
+	{{ copy.memcpy }}(dst, src, n * sizeof({{ type.name }}));
+{%- else %}
+	for (uint32_t i = 0; i < n; i++) {
+		dst[i] = src[i];
+	}
+{%- endif %}
+}
+
+/* Moves the newest samples to the start of the history buffer. The regions
+ * can overlap, but dst is always before src so copying forwards is safe */
+static inline void filter_shift_{{ type.suffix }}({{ type.name }} *dst, const {{ type.name }} *src, uint32_t n) {
+{%- if copy.memmove %}
+	{{ copy.memmove }}(dst, src, n * sizeof({{ type.name }}));
+{%- else %}
+	for (uint32_t i = 0; i < n; i++) {
+		dst[i] = src[i];
+	}
+{%- endif %}
+}
 
 /* Calculates n_out outputs from a linear history buffer, where output k is
  * the sum of b[i] * x[k * stride - i] for i = 0 to N - 1. x points to the
  * newest sample used by output 0, and must have at least N - 1 samples of
- * history before it */
+ * history before it. FILTER_OUTPUT_GROUP outputs are calculated together, so
+ * the compiler can vectorise across them while each output's terms are still
+ * summed in the order b[0] to b[N-1] */
 static inline void filter_block_{{ type.suffix }}(const {{ type.name }} *b, uint32_t N, const {{ type.name }} *x,
 									  uint32_t stride, {{ type.name }} *y, uint32_t n_out) {
 	for (uint32_t k0 = 0; k0 < n_out; k0 += FILTER_OUTPUT_GROUP) {
 		const uint32_t count = (n_out - k0) < FILTER_OUTPUT_GROUP
 								   ? (n_out - k0)
 								   : FILTER_OUTPUT_GROUP;
-		{{ type.name }} acc[FILTER_OUTPUT_GROUP] = {0};
+		{{ type.name }} acc[FILTER_OUTPUT_GROUP];
 		const {{ type.name }} *x0 = x + k0 * stride;
+
+		/* Zeroed with a loop rather than an initialiser, which compilers can
+		 * turn into a memset call */
+		for (uint32_t k = 0; k < count; k++) {
+			acc[k] = ({{ type.name }})0;
+		}
 
 		for (uint32_t i = 0; i < N; i++) {
 			const {{ type.name }} bi = b[i];

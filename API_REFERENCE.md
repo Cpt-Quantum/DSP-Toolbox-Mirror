@@ -46,6 +46,26 @@ Finite Impulse Response filter implementation in `fir_{{suffix}}.h`.
 
 The FIR and Direct Form IIR filters keep a linear history buffer per filter, holding the previous `taps - 1` samples followed by space for a block of new samples. Input is processed in blocks of up to `FILTER_BLOCK_SIZE` samples (default 128, defined in `filter_shared.h`), with several outputs calculated together so they can be vectorised. Each output's terms are still summed in coefficient order. Any input `length` is supported. History buffers must be zeroed and hold `FILTER_STATE_SIZE(taps)` elements. If `FILTER_BLOCK_SIZE` is overridden, it must be defined the same way for every file in the build.
 
+#### Build configuration (`filter_shared.h`)
+
+| Macro | Default | Description |
+| :--- | :--- | :--- |
+| `FILTER_BLOCK_SIZE` | `128` | Maximum new samples processed per block. Sets the history buffer size, so it must match across the whole build. |
+| `FILTER_OUTPUT_GROUP` | `32` | Outputs calculated together. Large for wide SIMD; a smaller group (e.g. 4) may suit scalar FPU cores. Affects speed only, never results. |
+
+#### Generation options (copy functions)
+
+The FIR and IIR filters copy new samples into, and shift, their history buffers. The copy functions are chosen when the sources are generated (`python scripts/generate_sources.py --help`):
+
+| Option | Description |
+| :--- | :--- |
+| *(default)* | `memcpy`/`memmove` from the C standard library. |
+| `--no-stdlib` | Plain copy loops written into the generated code, for targets without a C standard library (e.g. MCUs). The FIR and IIR sources then only include freestanding headers (`<stdint.h>`, `<stddef.h>`). |
+| `--memcpy FUNC` / `--memmove FUNC` | User functions with the `memcpy`/`memmove` signatures (e.g. DMA or vendor optimised copies). Either can be given alone, and the other falls back to the default (or the copy loops with `--no-stdlib`). The `--memmove` function must handle overlapping regions where the destination comes first. |
+| `--copy-header HEADER` | Header declaring the `--memcpy`/`--memmove` functions, included by the generated filter sources. |
+
+The JSON initialisation functions require a hosted environment (cJSON, `malloc`, `printf`) regardless of these options.
+
 ### Data Structures
 
 ```c
