@@ -25,38 +25,77 @@ static inline void filter_shift_{{ type.suffix }}({{ type.name }} *dst, const {{
 {%- endif %}
 }
 
-/* Calculates n_out outputs from a linear history buffer, where output k is
- * the sum of b[i] * x[k * stride - i] for i = 0 to N - 1. x points to the
- * newest sample used by output 0, and must have at least N - 1 samples of
- * history before it. FILTER_OUTPUT_GROUP outputs are calculated together, so
- * the compiler can vectorise across them while each output's terms are still
- * summed in the order b[0] to b[N-1] */
+/* Calculates count accumulators, at most FILTER_OUTPUT_GROUP, where
+ * accumulator k is the sum of b[i] * x[k * stride - i] for i = 0 to N - 1. x
+ * points to the newest sample used by accumulator 0, and must have at least
+ * N - 1 samples of history before it. The accumulators are calculated
+ * together, so the compiler can vectorise across them while each one's terms
+ * are still summed in the order b[0] to b[N-1] */
+static inline void filter_group_{{ type.suffix }}(const {{ type.name }} *b, uint32_t N, const {{ type.name }} *x,
+									  uint32_t stride, {{ type.acc_type }} *acc, uint32_t count) {
+	/* Zeroed with a loop rather than an initialiser, which compilers can turn
+	 * into a memset call */
+	for (uint32_t k = 0; k < count; k++) {
+		acc[k] = ({{ type.acc_type }})0;
+	}
+
+	for (uint32_t i = 0; i < N; i++) {
+		const {{ type.acc_type }} bi = {{ type.acc_cast }}b[i];
+		const {{ type.name }} *xi = x - i;
+		/* size_t indexing, as GCC can't vectorise the strided access when the
+		 * 32 bit index could wrap */
+		for (size_t k = 0; k < count; k++) {
+			acc[k] = acc[k] + (bi * {{ type.acc_cast }}xi[k * (size_t)stride]);
+		}
+	}
+}
+{%- if type.fixed_point %}
+
+/* Converts an accumulator of Q format products back to a sample, rounding to
+ * the nearest value (halves round up) as the frac_bits fractional bits are
+ * shifted out{% if type.limits %}, then saturating to the range of {{ type.name }}{% endif %}.
+ * Assumes an arithmetic right shift of negative values, as on GCC, Clang and
+ * the common embedded compilers */
+static inline {{ type.name }} filter_output_{{ type.suffix }}({{ type.acc_type }} acc, uint32_t frac_bits) {
+	const {{ type.acc_type }} half = frac_bits > 0 ? ({{ type.acc_type }})1 << (frac_bits - 1) : 0;
+	acc = (acc + half) >> frac_bits;
+{%- if type.limits %}
+	if (acc > {{ type.limits[1] }}) {
+		return {{ type.limits[1] }};
+	}
+	if (acc < {{ type.limits[0] }}) {
+		return {{ type.limits[0] }};
+	}
+{%- endif %}
+	return ({{ type.name }})acc;
+}
+{%- endif %}
+
+{%- if block_outputs %}
+
+/* Calculates n_out outputs from a linear history buffer, with x laid out as
+ * for filter_group_{{ type.suffix }}(), where output k is the sum of
+ * b[i] * x[k * stride - i] for i = 0 to N - 1
+{%- if type.fixed_point %}, converted back
+ * to a sample with filter_output_{{ type.suffix }}()
+{%- endif %} */
 static inline void filter_block_{{ type.suffix }}(const {{ type.name }} *b, uint32_t N, const {{ type.name }} *x,
-									  uint32_t stride, {{ type.name }} *y, uint32_t n_out) {
+									  uint32_t stride, {{ type.name }} *y, uint32_t n_out
+{%- if type.fixed_point %}, uint32_t frac_bits{% endif %}) {
 	for (uint32_t k0 = 0; k0 < n_out; k0 += FILTER_OUTPUT_GROUP) {
 		const uint32_t count = (n_out - k0) < FILTER_OUTPUT_GROUP
 								   ? (n_out - k0)
 								   : FILTER_OUTPUT_GROUP;
-		{{ type.name }} acc[FILTER_OUTPUT_GROUP];
-		const {{ type.name }} *x0 = x + k0 * stride;
+		{{ type.acc_type }} acc[FILTER_OUTPUT_GROUP];
 
-		/* Zeroed with a loop rather than an initialiser, which compilers can
-		 * turn into a memset call */
+		filter_group_{{ type.suffix }}(b, N, x + k0 * stride, stride, acc, count);
 		for (uint32_t k = 0; k < count; k++) {
-			acc[k] = ({{ type.name }})0;
-		}
-
-		for (uint32_t i = 0; i < N; i++) {
-			const {{ type.name }} bi = b[i];
-			const {{ type.name }} *xi = x0 - i;
-			/* size_t indexing, as GCC can't vectorise the strided access when
-			 * the 32 bit index could wrap */
-			for (size_t k = 0; k < count; k++) {
-				acc[k] = acc[k] + (bi * xi[k * (size_t)stride]);
-			}
-		}
-		for (uint32_t k = 0; k < count; k++) {
+{%- if type.fixed_point %}
+			y[k0 + k] = filter_output_{{ type.suffix }}(acc[k], frac_bits);
+{%- else %}
 			y[k0 + k] = acc[k];
+{%- endif %}
 		}
 	}
 }
+{%- endif %}

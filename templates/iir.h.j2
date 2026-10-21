@@ -9,12 +9,30 @@ extern "C" {
 
 #include "filter_shared.h"
 
+{% if type.fixed_point -%}
+/* The coefficients are in Q format with frac_bits fractional bits, as for the
+ * FIR filter in fir_{{ type.suffix }}.h. They must be normalised so a[0] is 1.0, i.e.
+ * 1 << frac_bits, as the shift back down by frac_bits takes the place of the
+ * division by a[0] and a[0] is not read. The feedforward and feedback terms
+ * are summed together in {{ type.acc_type }}, and each output is only rounded
+{%- if type.limits %}
+ * and saturated once
+{%- else %}
+ * once
+{%- endif %}, after the sum. The same applies to each biquad section, and
+ * the SOS gain is also in Q format with frac_bits fractional bits */
+{% endif -%}
 struct iir_{{ type.suffix }}_t {
 	{{ type.name }} *a;
 	{{ type.name }} *b;
 	/* Input and output histories, FILTER_STATE_SIZE(taps) elements each */
 	{{ type.name }} *in_buff, *out_buff;
 	uint16_t taps;
+{%- if type.fixed_point %}
+	/* Fractional bits of the coefficients, at most {{ 30 if type.limits else 62 }} so 1.0 can be
+	 * represented */
+	uint8_t frac_bits;
+{%- endif %}
 };
 
 /* Definitions for IIR filters in biquad/second order sections format */
@@ -26,6 +44,11 @@ struct biquad_section_{{ type.suffix }}_t {
 struct sos_filter_{{ type.suffix }}_t {
 	struct biquad_section_{{ type.suffix }}_t *biquad_section;
 	uint16_t num_sections;
+{%- if type.fixed_point %}
+	/* Fractional bits of the section coefficients and the gain, at most {{ 30 if type.limits else 62 }}
+	 * so 1.0 can be represented */
+	uint8_t frac_bits;
+{%- endif %}
 	{{ type.name }} gain;
 };
 

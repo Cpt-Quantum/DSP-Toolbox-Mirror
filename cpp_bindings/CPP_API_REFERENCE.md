@@ -49,6 +49,7 @@ A wrapper for Finite Impulse Response filtering.
 ### Constructors
 
 * `fir(num_t *b, num_t *in_buff, uint16_t taps)`: Initializes with raw coefficient and history buffers. `in_buff` must be zeroed and hold `FILTER_STATE_SIZE(taps)` elements.
+* `fir(num_t *b, num_t *in_buff, uint16_t taps, uint8_t frac_bits)`: Integer types only, the same as above for Q format coefficients with `frac_bits` fractional bits. See [Integer filters](../API_REFERENCE.md#integer-filters-fixed-point).
 * `fir(cJSON *node)`: Initializes automatically from a cJSON object (e.g., loaded from a file).
 
 ### Methods
@@ -57,6 +58,7 @@ A wrapper for Finite Impulse Response filtering.
 * `void fir_filter(num_t *data_in, num_t *data_out, uint32_t length)`: Pointer overload of the above, for filtering at an offset within a larger buffer without copying.
 * `uint32_t fir_decimate(std::vector<num_t> &data_in, std::vector<num_t> &data_out, uint32_t length, uint8_t decimation_rate)`: Filters and reduces sample rate, returning the number of output samples written. `length` does not need to be a multiple of the rate; `data_out` must hold at least `ceil(length / decimation_rate)` samples.
 * `uint32_t fir_decimate(num_t *data_in, num_t *data_out, uint32_t length, uint8_t decimation_rate)`: Pointer overload of the above, for filtering at an offset within a larger buffer without copying.
+* `uint8_t get_frac_bits() const`: Integer types only, the Q format fractional bits of the coefficients.
 
 ---
 
@@ -67,12 +69,14 @@ A wrapper for Direct Form I (ba) Infinite Impulse Response filters.
 ### Constructors
 
 * `iir_ba(num_t *a, num_t *b, num_t *in_buff, num_t *out_buff, uint16_t taps)`: Initializes with raw buffers. `in_buff` and `out_buff` must be zeroed and hold `FILTER_STATE_SIZE(taps)` elements each.
+* `iir_ba(num_t *a, num_t *b, num_t *in_buff, num_t *out_buff, uint16_t taps, uint8_t frac_bits)`: Integer types only, for Q format coefficients with `frac_bits` fractional bits. `a[0]` must be `1 << frac_bits`.
 * `iir_ba(cJSON *node)`: Initializes automatically from a cJSON object.
 
 ### Methods
 
 * `void iir_filter(std::vector<num_t> &data_in, std::vector<num_t> &data_out, uint32_t length)`: Processes input data.
 * `void iir_filter(num_t *data_in, num_t *data_out, uint32_t length)`: Pointer overload of the above, for filtering at an offset within a larger buffer without copying.
+* `uint8_t get_frac_bits() const`: Integer types only, the Q format fractional bits of the coefficients.
 
 ---
 
@@ -83,12 +87,14 @@ A wrapper for Second Order Sections (SOS) IIR filters, which are more numericall
 ### Constructors
 
 * `iir_sos(biquad_t *sections, uint16_t n_sections, num_t gain)`: Initializes with raw SOS sections.
+* `iir_sos(biquad_t *sections, uint16_t n_sections, num_t gain, uint8_t frac_bits)`: Integer types only, for Q format section coefficients and gain with `frac_bits` fractional bits. Each section's `a[0]` must be `1 << frac_bits`.
 * `iir_sos(cJSON *node)`: Initializes automatically from a cJSON object.
 
 ### Methods
 
 * `void iir_filter(std::vector<num_t> &data_in, std::vector<num_t> &data_out, uint32_t length)`: Processes input data through all sections.
 * `void iir_filter(num_t *data_in, num_t *data_out, uint32_t length)`: Pointer overload of the above, for filtering at an offset within a larger buffer without copying.
+* `uint8_t get_frac_bits() const`: Integer types only, the Q format fractional bits of the coefficients.
 
 ---
 

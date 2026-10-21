@@ -67,6 +67,27 @@ The FIR and IIR filters copy new samples into, and shift, their history buffers.
 
 The JSON initialisation functions require a hosted environment (cJSON, `malloc`, `printf`) regardless of these options.
 
+#### Integer filters (fixed point)
+
+The `int32` and `int64` filters (FIR, Direct Form IIR and SOS) use Q format coefficients. Each filter struct has a `frac_bits` field, and a coefficient `c` has the value `c / 2^frac_bits`. For example, 0.25 in Q1.30 (`frac_bits = 30`) is `1 << 28`.
+
+| | `int32` | `int64` |
+| :--- | :--- | :--- |
+| Accumulator | `int64_t` | `int64_t` |
+| Output | Rounded to nearest (halves up), shifted down by `frac_bits`, saturated to `INT32_MIN`/`INT32_MAX` | Rounded to nearest (halves up), shifted down by `frac_bits` |
+| `frac_bits` (FIR) | 0 to 31 | 0 to 62 |
+| `frac_bits` (IIR/SOS) | 0 to 30, so 1.0 can be represented | 0 to 62 |
+
+- Each output is rounded once, after all of its terms are summed. For the IIR filters this includes the feedforward and feedback terms together.
+- The IIR filters don't divide by `a[0]`. The shift by `frac_bits` takes its place, so the coefficients must be normalised with `a[0] = 1 << frac_bits`. SciPy's designs are normalised already. The same applies to each SOS section's `a[0]`, and the SOS `gain` is also in Q format.
+- The sum must not overflow the accumulator, so choose the Q format to leave headroom. For full-scale 32-bit input, the absolute coefficients (as integers) must add up to less than 2^32. An `int64` filter has no wider accumulator, so its input must use far fewer than 64 bits (e.g. 16 or 32-bit samples stored in `int64_t`).
+- Negative values are shifted right arithmetically, as on GCC, Clang and the common embedded compilers.
+- On a Cortex-M4 the `int32` filters compile to `SMLAL` (single-cycle 32x32+64 multiply-accumulate).
+
+The float and double filters are unchanged and have no `frac_bits` field.
+
+To quantise coefficients, pass `fixed_point_format=(total_bits, frac_bits)` to the design functions in `scripts/filter_design_wrapper.py`. The coefficients are then rounded to integers and `frac_bits` is exported to the JSON with them. A `ValueError` is raised if a coefficient doesn't fit the format, rather than clipping it and changing the response.
+
 ### Data Structures
 
 ```c
@@ -75,6 +96,7 @@ struct fir_{{suffix}}_t {
     {{type}} *in_buff;     // Input history, FILTER_STATE_SIZE(taps) elements
     uint16_t taps;         // Number of filter taps
     uint8_t decimation_phase; // Input samples until the next decimated output
+    uint8_t frac_bits;     // Integer types only, Q format fractional bits
 };
 ```
 
@@ -89,7 +111,7 @@ struct fir_{{suffix}}_t {
 
 ## IIR Filters
 
-Infinite Impulse Response filter implementation (Direct Form and SOS) in `iir_{{suffix}}.h`.
+Infinite Impulse Response filter implementation (Direct Form and SOS) in `iir_{{suffix}}.h`. The integer types use Q format coefficients, see [Integer filters](#integer-filters-fixed-point).
 
 ### Data Structures
 
@@ -102,6 +124,7 @@ struct iir_{{suffix}}_t {
     {{type}} *in_buff;     // Input history, FILTER_STATE_SIZE(taps) elements
     {{type}} *out_buff;    // Output history, FILTER_STATE_SIZE(taps) elements
     uint16_t taps;         // Number of coefficients
+    uint8_t frac_bits;     // Integer types only, Q format fractional bits
 };
 ```
 
@@ -116,6 +139,7 @@ struct biquad_section_{{suffix}}_t {
 struct sos_filter_{{suffix}}_t {
     struct biquad_section_{{suffix}}_t *biquad_section;
     uint16_t num_sections;
+    uint8_t frac_bits;     // Integer types only, Q format fractional bits
     {{type}} gain;         // Overall filter gain
 };
 ```
@@ -142,6 +166,8 @@ Functions for initializing filter structures from JSON (using cJSON) in `json_to
 | `free_fir_{{suffix}}(filt)` | Frees memory allocated for an FIR filter's buffers. |
 | `free_iir_{{suffix}}(filt)` | Frees memory allocated for an IIR filter's buffers. |
 | `free_sos_{{suffix}}(filt)` | Frees memory allocated for an SOS filter's sections. |
+
+The integer loaders also read `frac_bits` from the filter's JSON object, as written by `scripts/filter_design_wrapper.py`. They warn if it is missing, in which case the coefficients are treated as integers. They also warn if an IIR `a[0]` isn't `1 << frac_bits`. Coefficients pass through a JSON double, so `int64` coefficients are exact only up to 53 bits.
 
 ---
 

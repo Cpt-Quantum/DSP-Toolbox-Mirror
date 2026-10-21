@@ -30,6 +30,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 template <typename num_t> class waveform_t {
@@ -356,14 +357,12 @@ template <typename num_t> class fir {
 		 * the number of taps */
 		in_buff_clone.assign(FILTER_STATE_SIZE(other.filt_struct->taps),
 							 (num_t)0);
-		/* Get the pointer of the std::vector data and pass it to the struct's
-		 * pointer */
+		/* Copy the struct to share the coefficients, taps and (for the
+		 * integer types) the fixed point format */
+		*filt_struct = *other.filt_struct;
+		/* Point the struct at the new input buffer and reset the decimation
+		 * phase to 0 */
 		filt_struct->in_buff = in_buff_clone.data();
-		/* Get the pointer to the shared coefficients */
-		filt_struct->b = other.filt_struct->b;
-		/* Set the number of taps in the struct member and reset the
-		 * decimation phase to 0 */
-		filt_struct->taps = other.filt_struct->taps;
 		filt_struct->decimation_phase = 0;
 	};
 	fir &operator=(const fir &other) {
@@ -375,13 +374,12 @@ template <typename num_t> class fir {
 				new fir_t(), fir_deleter{false});
 			in_buff_clone.assign(FILTER_STATE_SIZE(other.filt_struct->taps),
 								 (num_t)0);
-			/* Set the struct pointer for the input buffer */
+			/* Copy the struct to share the coefficients, taps and (for the
+			 * integer types) the fixed point format */
+			*filt_struct = *other.filt_struct;
+			/* Point the struct at the new input buffer and reset the decimation
+			 * phase to 0 */
 			filt_struct->in_buff = in_buff_clone.data();
-			/* Get the pointer to the shared coefficients */
-			filt_struct->b = other.filt_struct->b;
-			/* Set the number of taps in the struct member and reset the
-			 * decimation phase to 0 */
-			filt_struct->taps = other.filt_struct->taps;
 			filt_struct->decimation_phase = 0;
 		}
 		return *this;
@@ -397,6 +395,14 @@ template <typename num_t> class fir {
 		filt_struct->in_buff = _in_buff;
 		filt_struct->taps = _taps;
 		filt_struct->decimation_phase = 0;
+	};
+	/* Integer types only, for Q format coefficients with _frac_bits
+	 * fractional bits */
+	template <typename T = num_t,
+			  typename = std::enable_if_t<std::is_integral<T>::value>>
+	fir(num_t *_b, num_t *_in_buff, uint16_t _taps, uint8_t _frac_bits)
+		: fir(_b, _in_buff, _taps) {
+		filt_struct->frac_bits = _frac_bits;
 	};
 	fir(fir_t *_filt_struct) : filt_struct(_filt_struct, fir_deleter{false}) {};
 	fir(cJSON *node) : filt_struct(new fir_t(), fir_deleter{true}) {
@@ -433,6 +439,12 @@ template <typename num_t> class fir {
 								  filt_struct->b + filt_struct->taps);
 	}
 	uint16_t get_num_taps() const { return filt_struct->taps; }
+	/* Integer types only */
+	template <typename T = num_t,
+			  typename = std::enable_if_t<std::is_integral<T>::value>>
+	uint8_t get_frac_bits() const {
+		return filt_struct->frac_bits;
+	}
 };
 
 /* Map the numerical type (float/double/int32_t) to struct and function types
@@ -529,15 +541,12 @@ template <typename num_t> class iir_ba {
 							 (num_t)0);
 		out_buff_clone.assign(FILTER_STATE_SIZE(other.filt_struct->taps),
 							  (num_t)0);
-		/* Get the pointer of the std::vector data and pass it to the struct's
-		 * pointer */
+		/* Copy the struct to share the coefficients, taps and (for the
+		 * integer types) the fixed point format */
+		*filt_struct = *other.filt_struct;
+		/* Point the struct at the new input and output buffers */
 		filt_struct->in_buff = in_buff_clone.data();
 		filt_struct->out_buff = out_buff_clone.data();
-		/* Get the pointer to the shared coefficients */
-		filt_struct->a = other.filt_struct->a;
-		filt_struct->b = other.filt_struct->b;
-		/* Set the number of taps in the struct member */
-		filt_struct->taps = other.filt_struct->taps;
 	}
 	iir_ba &operator=(const iir_ba &other) {
 		if (this != &other) {
@@ -550,15 +559,12 @@ template <typename num_t> class iir_ba {
 								 (num_t)0);
 			out_buff_clone.assign(FILTER_STATE_SIZE(other.filt_struct->taps),
 								  (num_t)0);
-			/* Get the pointer of the std::vector data and pass it to the
-			 * struct's pointer */
+			/* Copy the struct to share the coefficients, taps and (for the
+			 * integer types) the fixed point format */
+			*filt_struct = *other.filt_struct;
+			/* Point the struct at the new input and output buffers */
 			filt_struct->in_buff = in_buff_clone.data();
 			filt_struct->out_buff = out_buff_clone.data();
-			/* Get the pointer to the shared coefficients */
-			filt_struct->a = other.filt_struct->a;
-			filt_struct->b = other.filt_struct->b;
-			/* Set the number of taps in the struct member */
-			filt_struct->taps = other.filt_struct->taps;
 		}
 		return *this;
 	}
@@ -576,6 +582,15 @@ template <typename num_t> class iir_ba {
 		filt_struct->in_buff = _in_buff;
 		filt_struct->out_buff = _out_buff;
 		filt_struct->taps = taps;
+	};
+	/* Integer types only, for Q format coefficients with _frac_bits
+	 * fractional bits. _a[0] must be 1 << _frac_bits */
+	template <typename T = num_t,
+			  typename = std::enable_if_t<std::is_integral<T>::value>>
+	iir_ba(num_t *_a, num_t *_b, num_t *_in_buff, num_t *_out_buff,
+		   uint16_t taps, uint8_t _frac_bits)
+		: iir_ba(_a, _b, _in_buff, _out_buff, taps) {
+		filt_struct->frac_bits = _frac_bits;
 	};
 	iir_ba(iir_t *raw_filt_struct)
 		: filt_struct(raw_filt_struct, iir_deleter{false}) {};
@@ -603,6 +618,12 @@ template <typename num_t> class iir_ba {
 								  filt_struct->b + filt_struct->taps);
 	}
 	uint16_t get_num_taps() const { return filt_struct->taps; }
+	/* Integer types only */
+	template <typename T = num_t,
+			  typename = std::enable_if_t<std::is_integral<T>::value>>
+	uint8_t get_frac_bits() const {
+		return filt_struct->frac_bits;
+	}
 };
 
 /* Map the numerical type (float/double/int32_t) to struct and function types
@@ -707,11 +728,11 @@ template <typename num_t> class iir_sos {
 		sections_clone.assign(other.filt_struct->biquad_section,
 							  other.filt_struct->biquad_section +
 								  other.filt_struct->num_sections);
-		/* Pass the pointer to the std::vector raw data for the filter struct */
+		/* Copy the struct for the number of sections, gain and (for the
+		 * integer types) the fixed point format */
+		*filt_struct = *other.filt_struct;
+		/* Point the struct at the copied sections */
 		filt_struct->biquad_section = sections_clone.data();
-		/* Set the number of sections and gain from the reference object */
-		filt_struct->num_sections = other.filt_struct->num_sections;
-		filt_struct->gain = other.filt_struct->gain;
 	}
 	iir_sos &operator=(const iir_sos &other) {
 		if (this != &other) {
@@ -722,12 +743,11 @@ template <typename num_t> class iir_sos {
 			sections_clone.assign(other.filt_struct->biquad_section,
 								  other.filt_struct->biquad_section +
 									  other.filt_struct->num_sections);
-			/* Pass the pointer to the std::vector raw data for the filter
-			 * struct */
+			/* Copy the struct for the number of sections, gain and (for the
+			 * integer types) the fixed point format */
+			*filt_struct = *other.filt_struct;
+			/* Point the struct at the copied sections */
 			filt_struct->biquad_section = sections_clone.data();
-			/* Set the number of sections and gain from the reference object */
-			filt_struct->num_sections = other.filt_struct->num_sections;
-			filt_struct->gain = other.filt_struct->gain;
 		}
 		return *this;
 	}
@@ -740,6 +760,16 @@ template <typename num_t> class iir_sos {
 		filt_struct->biquad_section = _sections;
 		filt_struct->num_sections = _n_sections;
 		filt_struct->gain = _gain;
+	};
+	/* Integer types only, for Q format section coefficients and gain with
+	 * _frac_bits fractional bits. Each section's a[0] must be
+	 * 1 << _frac_bits */
+	template <typename T = num_t,
+			  typename = std::enable_if_t<std::is_integral<T>::value>>
+	iir_sos(biquad_t *_sections, uint16_t _n_sections, num_t _gain,
+			uint8_t _frac_bits)
+		: iir_sos(_sections, _n_sections, _gain) {
+		filt_struct->frac_bits = _frac_bits;
 	};
 	iir_sos(iir_t *raw_filt_struct)
 		: filt_struct(raw_filt_struct, iir_deleter{false}) {};
@@ -773,6 +803,12 @@ template <typename num_t> class iir_sos {
 	}
 	uint16_t get_num_sections() const { return filt_struct->num_sections; }
 	num_t get_gain() const { return filt_struct->gain; }
+	/* Integer types only */
+	template <typename T = num_t,
+			  typename = std::enable_if_t<std::is_integral<T>::value>>
+	uint8_t get_frac_bits() const {
+		return filt_struct->frac_bits;
+	}
 };
 
 #endif /* DSP_TOOLBOX_CPP_WRAPPER_H */

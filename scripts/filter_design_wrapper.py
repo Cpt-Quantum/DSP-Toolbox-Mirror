@@ -21,18 +21,28 @@ class filter_wrapper():
     def _fixed_point_converter(self, coeffs: Union[list, np.ndarray], fixed_point_format: Tuple[int, int]) -> list:
         """
         Converts floating point coefficients into fixed point format.
-        The fixed_point_format is a tuple of (total_bits, fractional_bits) for example (18, 17)
+        The fixed_point_format is a tuple of (total_bits, fractional_bits) for example (18, 17).
+        The integer filters treat each coefficient c as c / 2**fractional_bits, so
+        fractional_bits is exported alongside the coefficients as "frac_bits".
+        Raises a ValueError if a coefficient doesn't fit, rather than clipping it
+        and changing the filter response
         """
         total_bits, fractional_bits = fixed_point_format
-        coeffs_np = np.array(coeffs)
+        if not 0 <= fractional_bits < total_bits:
+            raise ValueError(f"fractional_bits ({fractional_bits}) must be from 0 to total_bits - 1 ({total_bits - 1})")
+        coeffs_np = np.array(coeffs, dtype=float)
         # Scale and round to nearest integer
         scale_factor = 2**fractional_bits
-        fixed_coeffs = np.round(coeffs_np * scale_factor).astype(int)
-        # Keep the coefficients within the 2's compliment scale 
-        max_val = 2**(total_bits-1) - 1 
-        min_val = - (2**total_bits-1)
-        fixed_coeffs = np.clip(fixed_coeffs, min_val, max_val)
-        # Return the converted list 
+        fixed_coeffs = np.round(coeffs_np * scale_factor).astype(np.int64)
+        # The coefficients must be within the 2's complement range
+        max_val = 2**(total_bits-1) - 1
+        min_val = -2**(total_bits-1)
+        if np.any(fixed_coeffs > max_val) or np.any(fixed_coeffs < min_val):
+            int_bits = total_bits - 1 - fractional_bits
+            raise ValueError(
+                f"Coefficients up to {np.max(np.abs(coeffs_np)):.6g} don't fit in Q{int_bits}.{fractional_bits} "
+                f"(range {min_val / scale_factor:.6g} to {max_val / scale_factor:.6g}), use fewer fractional bits")
+        # Return the converted list
         return fixed_coeffs.tolist()
 
     def add_fir(self, name: str, ftype: filter_e, f_pb: Union[float, List[float]],
@@ -71,6 +81,8 @@ class filter_wrapper():
             "type": ftype.value,
             "b": fir_b_out
         }
+        if fixed_point_format:
+            self.filter_data[name]["frac_bits"] = fixed_point_format[1]
 
     def add_iir_ba(self, name: str, ftype: filter_e, f_pb: Union[float, List[float]],
                    f_sb: Union[float, List[float]], gpass: float, gstop: float,
@@ -93,6 +105,8 @@ class filter_wrapper():
             "b": b_out,
             "a": a_out
         }
+        if fixed_point_format:
+            self.filter_data[name]["frac_bits"] = fixed_point_format[1]
 
     def add_iir_sos(self, name: str, ftype: filter_e, f_pb: Union[float, List[float]],
                     f_sb: Union[float, List[float]], gpass: float, gstop: float, gain: float = 1.0,
@@ -110,12 +124,13 @@ class filter_wrapper():
             sos_out = sos.tolist()
             gain_out = gain
 
-        
         self.filter_data[name] = {
             "type": ftype.value,
             "sections": sos_out,
             "gain": gain_out
         }
+        if fixed_point_format:
+            self.filter_data[name]["frac_bits"] = fixed_point_format[1]
 
     def export_to_json(self, filepath: str):
         """Write the accumulated filter data to a JSON file."""

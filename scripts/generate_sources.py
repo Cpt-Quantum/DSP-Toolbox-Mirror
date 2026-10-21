@@ -11,6 +11,9 @@ types_config = [
         "math_prefix": "(float)",
         "literal_suffix": "f",
         "math_type": "float",
+        "fixed_point": False,
+        "acc_type": "float",
+        "limits": None,
     },
     {
         "name": "double",
@@ -19,6 +22,9 @@ types_config = [
         "math_prefix": "(double)",
         "literal_suffix": "",
         "math_type": "double",
+        "fixed_point": False,
+        "acc_type": "double",
+        "limits": None,
     },
     {
         "name": "int32_t",
@@ -27,6 +33,11 @@ types_config = [
         "math_prefix": "(int32_t)",  # Cast result back to int32_t
         "literal_suffix": "f",
         "math_type": "float",
+        # The integer filters use Q format coefficients, accumulating in a
+        # wider type and saturating the output back to the sample type
+        "fixed_point": True,
+        "acc_type": "int64_t",
+        "limits": ("INT32_MIN", "INT32_MAX"),
     },
     {
         "name": "int64_t",
@@ -35,6 +46,11 @@ types_config = [
         "math_prefix": "(int64_t)",  # Cast result back to int64_t
         "literal_suffix": "",
         "math_type": "double",
+        # No wider type is portable, so the accumulator can't exceed the
+        # output range and doesn't need saturating
+        "fixed_point": True,
+        "acc_type": "int64_t",
+        "limits": None,
     },
 ]
 
@@ -123,8 +139,15 @@ def generate(
                 output_path = os.path.join(output_dir, output_name)
 
                 print(f"Generating {output_path}...")
+                # Cast to widen the filter products into the accumulator,
+                # empty when they are the same type
+                acc_cast = (
+                    f"({config['acc_type']})"
+                    if config["acc_type"] != config["name"]
+                    else ""
+                )
                 content = template.render(
-                    type=config,
+                    type={**config, "acc_cast": acc_cast},
                     copy=copy,
                     fft=(fft or {}).get(config["suffix"]),
                 )

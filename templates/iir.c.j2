@@ -8,7 +8,10 @@
 
 /* The input and output history buffers each hold the previous taps - 1
  * samples, followed by space for a block of FILTER_BLOCK_SIZE new samples */
+{#- Only the accumulator groups are used, the outputs need the feedback #}
+{%- set block_outputs = false %}
 {% include "filter_block.c.j2" %}
+{%- set frac_bits = ", filter->frac_bits" if type.fixed_point else "" %}
 
 void iir_filter_{{ type.suffix }}({{ type.name }} *data_in, {{ type.name }} *data_out, struct iir_{{ type.suffix }}_t *filter,
 				uint32_t length) {
@@ -20,21 +23,33 @@ void iir_filter_{{ type.suffix }}({{ type.name }} *data_in, {{ type.name }} *dat
 	while (length > 0) {
 		const uint32_t n = length < FILTER_BLOCK_SIZE ? length : FILTER_BLOCK_SIZE;
 
-		/* The feedforward terms don't depend on previous outputs, so are
-		 * calculated for the whole block at once into data_out */
 		filter_copy_{{ type.suffix }}(&in_work[H], data_in, n);
-		filter_block_{{ type.suffix }}(filter->b, N, &in_work[H], 1, data_out, n);
 
-		/* The feedback terms are recursive, so are calculated per sample */
-		for (uint32_t c = 0; c < n; c++) {
-			{{ type.name }} acc = data_out[c];
-			const {{ type.name }} *y = &out_work[H + c];
-			for (uint32_t i = 1; i < N; i++) {
-				acc = acc - (filter->a[i] * *(y - i));
+		for (uint32_t c0 = 0; c0 < n; c0 += FILTER_OUTPUT_GROUP) {
+			const uint32_t count = (n - c0) < FILTER_OUTPUT_GROUP
+									   ? (n - c0)
+									   : FILTER_OUTPUT_GROUP;
+			{{ type.acc_type }} ff[FILTER_OUTPUT_GROUP];
+
+			/* The feedforward terms don't depend on previous outputs, so are
+			 * calculated for the whole group at once */
+			filter_group_{{ type.suffix }}(filter->b, N, &in_work[H + c0], 1, ff, count);
+
+			/* The feedback terms are recursive, so are calculated per sample */
+			for (uint32_t c = 0; c < count; c++) {
+				{{ type.acc_type }} acc = ff[c];
+				const {{ type.name }} *y = &out_work[H + c0 + c];
+				for (uint32_t i = 1; i < N; i++) {
+					acc = acc - ({{ type.acc_cast }}filter->a[i] * {{ type.acc_cast }}*(y - i));
+				}
+{%- if type.fixed_point %}
+				const {{ type.name }} out = filter_output_{{ type.suffix }}(acc, filter->frac_bits);
+{%- else %}
+				const {{ type.name }} out = acc / filter->a[0];
+{%- endif %}
+				out_work[H + c0 + c] = out;
+				data_out[c0 + c] = out;
 			}
-			acc = acc / filter->a[0];
-			out_work[H + c] = acc;
-			data_out[c] = acc;
 		}
 
 		filter_shift_{{ type.suffix }}(in_work, &in_work[n], H);
@@ -50,26 +65,31 @@ void iir_filter_{{ type.suffix }}({{ type.name }} *data_in, {{ type.name }} *dat
  * in shift registers. The input is read before the output is written so the
  * section can be run in place (data_in == data_out) */
 static void biquad_section_filter_{{ type.suffix }}({{ type.name }} *data_in, {{ type.name }} *data_out,
-						   struct biquad_section_{{ type.suffix }}_t *section, uint32_t length) {
+						   struct biquad_section_{{ type.suffix }}_t *section, uint32_t length
+{%- if type.fixed_point %}, uint32_t frac_bits{% endif %}) {
 	{{ type.name }} x1 = section->x1, x2 = section->x2;
 	{{ type.name }} y1 = section->y1, y2 = section->y2;
 
 	for (uint32_t c = 0; c < length; c++) {
 		{{ type.name }} x0 = data_in[c];
-		{{ type.name }} acc = ({{ type.name }})0;
+		{{ type.acc_type }} acc = ({{ type.acc_type }})0;
 
-		acc = acc + (section->b[0] * x0);
-		acc = acc + (section->b[1] * x1);
-		acc = acc + (section->b[2] * x2);
-		acc = acc - (section->a[1] * y1);
-		acc = acc - (section->a[2] * y2);
-		acc = acc / section->a[0];
+		acc = acc + ({{ type.acc_cast }}section->b[0] * {{ type.acc_cast }}x0);
+		acc = acc + ({{ type.acc_cast }}section->b[1] * {{ type.acc_cast }}x1);
+		acc = acc + ({{ type.acc_cast }}section->b[2] * {{ type.acc_cast }}x2);
+		acc = acc - ({{ type.acc_cast }}section->a[1] * {{ type.acc_cast }}y1);
+		acc = acc - ({{ type.acc_cast }}section->a[2] * {{ type.acc_cast }}y2);
+{%- if type.fixed_point %}
+		const {{ type.name }} y0 = filter_output_{{ type.suffix }}(acc, frac_bits);
+{%- else %}
+		const {{ type.name }} y0 = acc / section->a[0];
+{%- endif %}
 
 		x2 = x1;
 		x1 = x0;
 		y2 = y1;
-		y1 = acc;
-		data_out[c] = acc;
+		y1 = y0;
+		data_out[c] = y0;
 	}
 	section->x1 = x1;
 	section->x2 = x2;
@@ -87,14 +107,18 @@ void sos_filter_{{ type.suffix }}({{ type.name }} *data_in, {{ type.name }} *dat
 		/* The first section reads from the input, the rest then run in place
 		 * on the output buffer */
 		biquad_section_filter_{{ type.suffix }}(data_in, data_out, &filter->biquad_section[0],
-							  length);
+							  length{{ frac_bits }});
 		for (uint32_t i = 1; i < filter->num_sections; i++) {
 			biquad_section_filter_{{ type.suffix }}(data_out, data_out,
-								  &filter->biquad_section[i], length);
+								  &filter->biquad_section[i], length{{ frac_bits }});
 		}
 	}
 
 	for (uint32_t j = 0; j < length; j++) {
+{%- if type.fixed_point %}
+		data_out[j] = filter_output_{{ type.suffix }}({{ type.acc_cast }}filter->gain * {{ type.acc_cast }}data_out[j], filter->frac_bits);
+{%- else %}
 		data_out[j] = filter->gain * data_out[j];
+{%- endif %}
 	}
 }

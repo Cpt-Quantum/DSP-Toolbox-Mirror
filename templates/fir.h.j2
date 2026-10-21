@@ -9,6 +9,20 @@ extern "C" {
 
 #include "filter_shared.h"
 
+{% if type.fixed_point -%}
+/* The coefficients are in Q format with frac_bits fractional bits, so a
+ * coefficient c has the value c / 2^frac_bits. Each output is summed in
+ * {{ type.acc_type }}, then rounded to the nearest value and shifted back down by
+{%- if type.limits %}
+ * frac_bits, saturating to the range of {{ type.name }}. The sum must not overflow
+ * {{ type.acc_type }}, so for full scale input the absolute coefficients (as integers)
+ * must add up to less than 2^32 */
+{%- else %}
+ * frac_bits. The sum must not overflow {{ type.acc_type }}, so the input range must be
+ * limited to leave headroom for the coefficients, e.g. 32 bit input with
+ * absolute coefficients (as integers) adding up to less than 2^32 */
+{%- endif %}
+{% endif -%}
 struct fir_{{ type.suffix }}_t {
 	{{ type.name }} *b;
 	/* Input history, FILTER_STATE_SIZE(taps) elements */
@@ -16,6 +30,10 @@ struct fir_{{ type.suffix }}_t {
 	uint16_t taps;
 	/* Input samples until the next decimated output, 0 on initialisation */
 	uint8_t decimation_phase;
+{%- if type.fixed_point %}
+	/* Fractional bits of the coefficients, at most {{ 62 if not type.limits else 31 }} */
+	uint8_t frac_bits;
+{%- endif %}
 };
 
 void fir_filter_{{ type.suffix }}({{ type.name }} *data_in, {{ type.name }} *data_out, struct fir_{{ type.suffix }}_t *filter,

@@ -10,7 +10,9 @@
  * space for a block of FILTER_BLOCK_SIZE new samples. Each block of input is
  * copied in after the history, filtered, and then the newest taps - 1 samples
  * are moved to the front to become the history for the next block */
+{%- set block_outputs = true %}
 {% include "filter_block.c.j2" %}
+{%- set frac_bits = ", filter->frac_bits" if type.fixed_point else "" %}
 
 void fir_filter_{{ type.suffix }}({{ type.name }} *data_in, {{ type.name }} *data_out, struct fir_{{ type.suffix }}_t *filter,
 				uint32_t length) {
@@ -22,7 +24,7 @@ void fir_filter_{{ type.suffix }}({{ type.name }} *data_in, {{ type.name }} *dat
 		const uint32_t n = length < FILTER_BLOCK_SIZE ? length : FILTER_BLOCK_SIZE;
 
 		filter_copy_{{ type.suffix }}(&work[H], data_in, n);
-		filter_block_{{ type.suffix }}(filter->b, N, &work[H], 1, data_out, n);
+		filter_block_{{ type.suffix }}(filter->b, N, &work[H], 1, data_out, n{{ frac_bits }});
 		filter_shift_{{ type.suffix }}(work, &work[n], H);
 
 		data_in += n;
@@ -51,7 +53,7 @@ uint32_t fir_decimate_{{ type.suffix }}({{ type.name }} *data_in, {{ type.name }
 
 		filter_copy_{{ type.suffix }}(&work[H], data_in, n);
 		filter_block_{{ type.suffix }}(filter->b, N, &work[H + phase], decimation_rate,
-							 &data_out[j], n_out);
+							 &data_out[j], n_out{{ frac_bits }});
 		filter_shift_{{ type.suffix }}(work, &work[n], H);
 
 		/* Work out where the next output falls relative to the next block */

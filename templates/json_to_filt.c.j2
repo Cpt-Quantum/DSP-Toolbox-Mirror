@@ -6,6 +6,37 @@
 #include "fir_{{ type.suffix }}.h"
 #include "iir_{{ type.suffix }}.h"
 
+{% if type.fixed_point -%}
+/* Fractional bits of the Q format coefficients, written by the Python filter
+ * design scripts when the coefficients are quantised. Returns 0 (integer
+ * coefficients) if it is missing or above max. The IIR filters need 1.0 to be
+ * representable for a[0], so allow one less fractional bit than the FIR */
+static uint8_t get_frac_bits_{{ type.suffix }}(cJSON *node, int max) {
+	cJSON *frac_bits = cJSON_GetObjectItem(node, "frac_bits");
+	if (!cJSON_IsNumber(frac_bits)) {
+		printf("Warning: 'frac_bits' not found, the coefficients are treated "
+			   "as integers. Quantise them with fixed_point_format in the "
+			   "filter design.\n");
+		return 0;
+	}
+	if (frac_bits->valueint < 0 || frac_bits->valueint > max) {
+		printf("Error: 'frac_bits' (%d) must be from 0 to %d, using 0.\n",
+			   frac_bits->valueint, max);
+		return 0;
+	}
+	return (uint8_t)frac_bits->valueint;
+}
+
+/* The filters don't divide by a[0], so it must be 1.0 in Q format */
+static void check_a0_{{ type.suffix }}({{ type.name }} a0, uint8_t frac_bits) {
+	if (a0 != ({{ type.name }})1 << frac_bits) {
+		printf("Warning: a[0] is %lld but must be 1 << frac_bits (%lld), the "
+			   "coefficients should be normalised by a[0].\n",
+			   (long long)a0, (long long)(({{ type.name }})1 << frac_bits));
+	}
+}
+
+{% endif -%}
 {{ type.name }} get_sample_rate_from_json_{{ type.suffix }}(cJSON *f_s_node) {
 	{{ type.name }} f_s = ({{ type.name }})0.0{{ type.literal_suffix }};
 	if (cJSON_IsNumber(f_s_node)) {
@@ -32,6 +63,9 @@ void init_fir_from_json_{{ type.suffix }}(struct fir_{{ type.suffix }}_t *filt, 
 	 * phase */
 	filt->taps = (uint16_t)cJSON_GetArraySize(b_cjson);
 	filt->decimation_phase = 0;
+{%- if type.fixed_point %}
+	filt->frac_bits = get_frac_bits_{{ type.suffix }}(fir_node, {{ 31 if type.limits else 62 }});
+{%- endif %}
 	/* Allocate memory for the B coefficients and the lookback buffer */
 	filt->b = ({{ type.name }} *)malloc(filt->taps * sizeof({{ type.name }}));
 	filt->in_buff = ({{ type.name }} *)calloc(FILTER_STATE_SIZE(filt->taps), sizeof({{ type.name }}));
@@ -88,6 +122,12 @@ void init_iir_from_json_{{ type.suffix }}(struct iir_{{ type.suffix }}_t *filt, 
 			filt->a[i] = ({{ type.name }})a_coeff->valuedouble;
 		}
 	}
+{%- if type.fixed_point %}
+	filt->frac_bits = get_frac_bits_{{ type.suffix }}(iir_node, {{ 30 if type.limits else 62 }});
+	if (filt->taps > 0) {
+		check_a0_{{ type.suffix }}(filt->a[0], filt->frac_bits);
+	}
+{%- endif %}
 	printf("Loaded an IIR filter from the input JSON file.\n");
 }
 
@@ -104,7 +144,13 @@ void init_sos_from_json_{{ type.suffix }}(struct sos_filter_{{ type.suffix }}_t 
 	/* Get the number of second order sections and the gain (set the gain to 1
 	 * if not present) */
 	filt->num_sections = (uint16_t)cJSON_GetArraySize(sections_arr);
+{%- if type.fixed_point %}
+	filt->frac_bits = get_frac_bits_{{ type.suffix }}(sos_node, {{ 30 if type.limits else 62 }});
+	/* A missing gain defaults to 1.0 in Q format */
+	filt->gain = cJSON_IsNumber(gain) ? ({{ type.name }})gain->valuedouble : ({{ type.name }})1 << filt->frac_bits;
+{%- else %}
 	filt->gain = cJSON_IsNumber(gain) ? ({{ type.name }})gain->valuedouble : ({{ type.name }})1.0{{ type.literal_suffix }};
+{%- endif %}
 	/* Allocate memory for the second order sections */
 	filt->biquad_section = (struct biquad_section_{{ type.suffix }}_t *)malloc(
 		filt->num_sections * sizeof(struct biquad_section_{{ type.suffix }}_t));
@@ -127,6 +173,10 @@ void init_sos_from_json_{{ type.suffix }}(struct sos_filter_{{ type.suffix }}_t 
 				({{ type.name }})cJSON_GetArrayItem(section_json, 4)->valuedouble;
 			section->a[2] =
 				({{ type.name }})cJSON_GetArrayItem(section_json, 5)->valuedouble;
+
+{%- if type.fixed_point %}
+			check_a0_{{ type.suffix }}(section->a[0], filt->frac_bits);
+{%- endif %}
 
 			section->x1 = section->x2 = ({{ type.name }})0;
 			section->y1 = section->y2 = ({{ type.name }})0;
