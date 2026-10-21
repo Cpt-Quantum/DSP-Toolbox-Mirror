@@ -1,5 +1,7 @@
 import argparse
+import math
 import os
+import struct
 from jinja2 import Environment, FileSystemLoader
 
 # Configuration for different types
@@ -111,13 +113,70 @@ TWIDDLE_MATH = {
 }
 
 
-def fft_options(twiddle_precision: str = "double") -> dict:
+def to_float32(value: float) -> float:
+    """Rounds a double to the nearest float"""
+    return struct.unpack("f", struct.pack("f", value))[0]
+
+
+def c_literal(value: float, single: bool) -> str:
+    """Shortest C literal that reads back as exactly value, as a float when
+    single is set"""
+    if single:
+        for digits in range(6, 10):
+            text = f"{value:.{digits}g}"
+            if to_float32(float(text)) == value:
+                break
+    else:
+        text = repr(value)
+    if "." not in text and "e" not in text:
+        text += ".0"
+    return text + ("f" if single else "")
+
+
+def twiddle_table(max_n: int, single: bool) -> list:
+    """The max_n point twiddle factors e^(-j 2 pi k / max_n) for k < max_n / 2,
+    as C initialisers. They are calculated and reflected in the same way as
+    fft_plan_init_*() with double twiddles, so the tables match bit for bit"""
+    rnd = to_float32 if single else float
+    half, quarter = max_n // 2, max_n // 4
+    twiddle = []
+    for k in range(half):
+        if k <= max_n // 8:
+            angle = 2 * math.pi * k / max_n
+            twiddle.append((rnd(math.cos(angle)), rnd(-math.sin(angle))))
+        elif k <= quarter:
+            real, imag = twiddle[quarter - k]
+            twiddle.append((-imag, -real))
+        else:
+            real, imag = twiddle[half - k]
+            twiddle.append((-real, imag))
+    return [
+        f"{{{c_literal(real, single)}, {c_literal(imag, single)}}}"
+        for real, imag in twiddle
+    ]
+
+
+def fft_options(
+    twiddle_precision: str = "double", table_size: int = None, table_only: bool = False
+) -> dict:
     """Per type settings for the FFT templates. twiddle_precision only applies
-    to the float FFT, the double FFT always calculates its twiddles in double"""
-    return {
-        "float": {"twiddle": TWIDDLE_MATH[twiddle_precision]},
-        "double": {"twiddle": TWIDDLE_MATH["double"]},
-    }
+    to the float FFT, the double FFT always calculates its twiddles in double.
+    table_size generates a const twiddle table for transforms up to that size,
+    and table_only removes the twiddle calculation (and the maths library)"""
+    options = {}
+    for suffix, precision in (("float", twiddle_precision), ("double", "double")):
+        table = None
+        if table_size is not None:
+            table = {
+                "max_n": table_size,
+                "entries": twiddle_table(table_size, suffix == "float"),
+            }
+        options[suffix] = {
+            "twiddle": TWIDDLE_MATH[precision],
+            "table": table,
+            "table_only": table_only,
+        }
+    return options
 
 
 def generate(
@@ -205,9 +264,32 @@ if __name__ == "__main__":
         "arithmetic entirely, for targets without a double FPU, at a small "
         "cost in accuracy. The double FFT always uses double",
     )
+    fft_group.add_argument(
+        "--fft-twiddle-table",
+        metavar="MAX_N",
+        type=int,
+        help="generate a const table of twiddle factors for transforms up to "
+        "MAX_N points (a power of two), with fft_plan_init_table_*() and "
+        "rfft_plan_init_table_*() plans using it, so no workspace or plan "
+        "initialisation maths is needed, e.g. for MCUs. The table takes "
+        "MAX_N / 2 complex values of flash",
+    )
+    fft_group.add_argument(
+        "--fft-table-only",
+        action="store_true",
+        help="with --fft-twiddle-table, leave out the workspace plans and "
+        "dft_*(), so the FFT doesn't use the maths library",
+    )
     args = parser.parse_args()
     if args.copy_header and not (args.memcpy or args.memmove):
         parser.error("--copy-header needs --memcpy and/or --memmove")
+    table_size = args.fft_twiddle_table
+    if table_size is not None and (table_size < 2 or table_size & (table_size - 1)):
+        parser.error("--fft-twiddle-table needs a power of two of at least 2")
+    if table_size is not None and table_size > 2**31:
+        parser.error("--fft-twiddle-table can be at most 2^31")
+    if args.fft_table_only and table_size is None:
+        parser.error("--fft-table-only needs --fft-twiddle-table")
 
     copy = copy_options(args)
     print(
@@ -218,10 +300,15 @@ if __name__ == "__main__":
     generate("inc", inc_templates)
     generate("filter", filter_templates, copy)
     generate("average", avg_templates)
-    print(f"Float FFT twiddles: {args.fft_twiddle_precision}")
+    if args.fft_table_only:
+        print(f"FFT twiddles: table up to {table_size} points only")
+    else:
+        print(f"Float FFT twiddles: {args.fft_twiddle_precision}")
+        if table_size is not None:
+            print(f"FFT twiddle table: up to {table_size} points")
     generate(
         "fft",
         fft_templates,
         types=FFT_TYPES,
-        fft=fft_options(args.fft_twiddle_precision),
+        fft=fft_options(args.fft_twiddle_precision, table_size, args.fft_table_only),
     )

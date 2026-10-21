@@ -19,7 +19,9 @@ SCRIPTS_DIR = scripts
 PLOT_SCRIPT = $(SCRIPTS_DIR)/plot_results.py
 DATA_CSVS = $(RESULTS_DIR)/input_data.csv \
 	$(RESULTS_DIR)/fft_data.csv \
-	$(RESULTS_DIR)/ifft_data.csv
+	$(RESULTS_DIR)/ifft_data.csv \
+	$(RESULTS_DIR)/rfft_data.csv \
+	$(RESULTS_DIR)/irfft_data.csv
 PNG_FILE = $(RESULTS_DIR)/fft.png
 
 all: $(PNG_FILE)

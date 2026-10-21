@@ -23,6 +23,8 @@ def run(results_dir):
     t, x = load_complex(f"{results_dir}/input_data.csv")
     f, x_fft = load_complex(f"{results_dir}/fft_data.csv")
     _, x_ifft = load_complex(f"{results_dir}/ifft_data.csv")
+    _, x_rfft = load_complex(f"{results_dir}/rfft_data.csv")
+    x_irfft = pd.read_csv(f"{results_dir}/irfft_data.csv")["Amplitude"].values
 
     n = len(x)
     ref_fft = np.fft.fft(x)
@@ -30,6 +32,8 @@ def run(results_dir):
     # The C transform runs in single precision, so expect errors around 1e-7
     print(f"FFT relative error against numpy: {relative_error(x_fft, ref_fft):.3g}")
     print(f"IFFT round trip relative error:   {relative_error(x_ifft, x):.3g}")
+    print(f"RFFT relative error against numpy: {relative_error(x_rfft, np.fft.rfft(x.real)):.3g}")
+    print(f"IRFFT round trip relative error:   {relative_error(x_irfft, x.real):.3g}")
 
     # Single sided amplitude spectrum, matching the amplitude of each input wave
     half = n // 2
@@ -40,12 +44,14 @@ def run(results_dir):
 
     ax1.plot(t, x.real, label="Input")
     ax1.plot(t, x_ifft.real, "--", label="IFFT output")
+    ax1.plot(t, x_irfft, ":", label="IRFFT output")
     ax1.set_title("Time Domain")
     ax1.set_xlabel("Time (s)")
     ax1.legend()
 
     ax2.plot(f[:half], ref_amplitude, label="numpy", alpha=0.4, linewidth=3)
     ax2.plot(f[:half], amplitude, label="C FFT")
+    ax2.plot(f[:half], 2 * np.abs(x_rfft[:half]) / n, "--", label="C real FFT")
     ax2.set_title("Amplitude Spectrum")
     ax2.set_xlabel("Frequency (Hz)")
     ax2.legend()

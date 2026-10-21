@@ -1,4 +1,5 @@
 #include "../../cpp_wrapper.h"
+#include <cmath>
 #include <iostream>
 
 using namespace std;

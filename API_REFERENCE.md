@@ -263,7 +263,8 @@ The sine waves repeat every `2 * num_steps` samples, so only one period is calcu
 ## FFT
 
 In place radix-2 Fourier transforms in `fft/fft_{{suffix}}.h`, generated for
-`float` and `double` only. The status enum is shared between the types in
+`float` and `double` only, with a complex transform and a real input
+transform. The status enum is shared between the types in
 `fft/fft_shared.h`.
 
 The forward transform uses a negative exponent and is unscaled. The inverse
@@ -271,10 +272,11 @@ uses a positive exponent and is scaled by `1 / n`, matching `numpy.fft.fft` and
 `numpy.fft.ifft`. Output is in natural order, with bin `n - k` the negative
 frequency matching bin `k`.
 
-### Generation options (twiddle precision)
+### Generation options (twiddles)
 
-The twiddle factors are calculated once, during plan initialisation. The
-transforms themselves only use the FFT's own type.
+By default the twiddle factors are calculated once, during plan
+initialisation, into a workspace provided by the caller. The transforms
+themselves only use the FFT's own type.
 
 | Option | Description |
 | :--- | :--- |
@@ -282,6 +284,18 @@ transforms themselves only use the FFT's own type.
 | `--fft-twiddle-precision float` | The float FFT calculates its twiddles in float, so no double arithmetic is used anywhere. For targets without a double FPU, where double is emulated in software. Accuracy is almost the same (relative RMS error 1.44e-7 against 1.43e-7 at N = 16384). |
 
 The double FFT always calculates its twiddles in double.
+
+The twiddles can instead be generated as a `const` table, so plans need no
+workspace (the table can stay in flash) and no initialisation maths:
+
+| Option | Description |
+| :--- | :--- |
+| `--fft-twiddle-table MAX_N` | Adds a table of the `MAX_N` point twiddles (a power of two), and the `fft_plan_init_table_{{suffix}}()` and `rfft_plan_init_table_{{suffix}}()` functions using it. Any power of two size up to `MAX_N` uses the same table, taking every `(MAX_N / n)`th entry. The table is `MAX_N / 2` complex values, e.g. 4 KiB of float for `MAX_N` = 1024. Its values are calculated in double and rounded once, and are bit for bit the same as the workspace twiddles with `--fft-twiddle-precision double`. The workspace functions are still generated. |
+| `--fft-table-only` | With `--fft-twiddle-table`, leaves out the workspace functions and `dft_{{suffix}}()`, so the FFT doesn't include `<math.h>` or need the maths library. For MCUs, where the float FFT then uses only single precision arithmetic. |
+
+```sh
+python scripts/generate_sources.py --fft-twiddle-table 1024 --fft-table-only
+```
 
 ### Data Structures
 
@@ -298,6 +312,14 @@ struct fft_plan_{{suffix}}_t {
     uint32_t n;
     uint32_t log2n;
     const complex_{{suffix}}_t *twiddle;
+    uint32_t twiddle_stride; /* twiddle k is twiddle[k * twiddle_stride] */
+};
+
+/* For the transforms of n real samples */
+struct rfft_plan_{{suffix}}_t {
+    uint32_t n;
+    const complex_{{suffix}}_t *twiddle;
+    uint32_t twiddle_stride;
 };
 ```
 
@@ -308,9 +330,13 @@ struct fft_plan_{{suffix}}_t {
 | `fft_plan_size_{{suffix}}(n)` | Workspace bytes needed for an `n` point plan, or 0 if `n` is not a power of two of at least 2. |
 | `FFT_PLAN_SIZE_{{SUFFIX}}(n)` | Compile time version of the above for sizing static buffers. Does not validate `n`. |
 | `fft_plan_init_{{suffix}}(plan, n, work, work_bytes)` | Fills the twiddle table into the caller's `work` buffer and initialises `plan`. Returns an `FFT_STATUS_E`, and leaves `plan` unmodified on error. |
+| `rfft_plan_size_{{suffix}}(n)`, `RFFT_PLAN_SIZE_{{SUFFIX}}(n)`, `rfft_plan_init_{{suffix}}(plan, n, work, work_bytes)` | The same for an `n` sample real plan, which needs the same workspace as an `n` point complex plan. |
+| `fft_plan_init_table_{{suffix}}(plan, n)`, `rfft_plan_init_table_{{suffix}}(plan, n)` | *(`--fft-twiddle-table` only)* Initialise a plan from the generated table, for `n` up to `FFT_TABLE_MAX_N_{{SUFFIX}}`. Return `FFT_ERR_NULL_POINTER` or `FFT_ERR_INVALID_SIZE`, leaving `plan` unmodified. |
 | `fft_{{suffix}}(plan, x)` | In place forward FFT of `plan->n` values. |
 | `ifft_{{suffix}}(plan, x)` | In place inverse FFT of `plan->n` values, scaled by `1 / n`. |
-| `dft_{{suffix}}(data_in, data_out, n)` | Direct O(N²) DFT for any `n`, as a slow reference. The buffers must not overlap. |
+| `rfft_{{suffix}}(plan, x)` | In place forward FFT of `plan->n` real values, returning bins 0 to `n / 2` packed into `x` (see below). About half the work of `fft_{{suffix}}()`. |
+| `irfft_{{suffix}}(plan, x)` | In place inverse of `rfft_{{suffix}}()`, from the packed bins back to `plan->n` real values, scaled by `1 / n`. |
+| `dft_{{suffix}}(data_in, data_out, n)` | Direct O(N²) DFT for any `n`, as a slow reference. The buffers must not overlap. Not generated with `--fft-table-only`. |
 
 Nothing is allocated. The workspace holds `n / 2` twiddle factors and must
 outlive the plan. A plan is read only after initialisation, so it can be shared
@@ -323,9 +349,38 @@ fft_plan_init_float(&plan, 1024, twiddle, sizeof twiddle);
 fft_float(&plan, x);
 ```
 
+### Real input transform
+
+`rfft_{{suffix}}()` packs the `n` real samples into `n / 2` complex values, runs an
+`n / 2` point complex FFT and then one extra pass to separate the bins. The
+other bins of a real signal are the complex conjugates (bin `n - k` of bin
+`k`), so only bins 0 to `n / 2` are returned. Bins 0 and `n / 2` are both real,
+so all of them fit in the `n` input values, in the same layout as CMSIS-DSP's
+`arm_rfft_fast_f32()`:
+
+| Index | Holds |
+| :--- | :--- |
+| `x[0]` | Bin 0 (real) |
+| `x[1]` | Bin `n / 2` (real) |
+| `x[2k]`, `x[2k + 1]` | Real and imaginary parts of bin `k`, for `0 < k < n / 2` |
+
+This gives the same bins as `numpy.fft.rfft`, which returns them unpacked as
+`n / 2 + 1` complex values. `irfft_{{suffix}}()` takes the same layout and, as
+`numpy.fft.irfft` does, treats the imaginary parts of bins 0 and `n / 2` as 0.
+
+```c
+static float x[1024];
+static struct rfft_plan_float_t plan;
+rfft_plan_init_table_float(&plan, 1024); /* or rfft_plan_init_float() with a workspace */
+rfft_float(&plan, x);
+float dc = x[0], nyquist = x[1];
+complex_float_t bin_k = {x[2 * k], x[2 * k + 1]};
+```
+
 ### Example
 
 `fft/main.c` transforms a pair of test tones with the float FFT and the inverse
-FFT, writing the results to CSV files in `fft/results/`. Running `make` in
+FFT, and with the real FFT and its inverse, writing the results to CSV files in
+`fft/results/`. Running `make` in
 `fft/` builds and runs it, then `scripts/plot_results.py` compares the results
 against numpy and plots them to `results/fft.png`.

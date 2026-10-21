@@ -22,6 +22,7 @@ extern "C" {
  *   k < N / 2 is a positive frequency and bin N - k is the matching negative
  *   frequency
  *
+{%- if not fft.table_only %}
  * The library never allocates. The caller provides the workspace that holds
  * the twiddle table, which can be a static array, a stack buffer or from
  * malloc. Declaring it as an array of complex_{{ type.suffix }}_t gives the correct
@@ -46,27 +47,82 @@ extern "C" {
  * The precision is chosen when the sources are generated, see
  * python scripts/generate_sources.py --help */
 {%- endif %}
+{%- else %}
+ * The library never allocates. The twiddle factors are a const table
+ * generated with the sources, so plans need no workspace and no maths library
+ * is used:
+ *
+ *	static struct fft_plan_{{ type.suffix }}_t plan;
+ *	fft_plan_init_table_{{ type.suffix }}(&plan, 1024);
+ *	fft_{{ type.suffix }}(&plan, x);
+ *
+ * A plan is read only after initialisation, so one plan can be shared by
+ * several threads transforming different buffers. Two threads must not
+ * transform the same buffer */
+{%- endif %}
 
 struct fft_plan_{{ type.suffix }}_t {
 	uint32_t n;
 	uint32_t log2n;
-	/* n / 2 twiddle factors, stored in the caller's workspace */
+	/* Twiddle factor k is twiddle[k * twiddle_stride], for k < n / 2. The
+	 * stride is 1 for a workspace, and lets smaller transforms share a larger
+	 * table */
 	const complex_{{ type.suffix }}_t *twiddle;
+	uint32_t twiddle_stride;
 };
+
+/* Plan for the transforms of n real samples, which run as an n / 2 point
+ * complex FFT and one extra pass, about half the work of fft_{{ type.suffix }}() */
+struct rfft_plan_{{ type.suffix }}_t {
+	uint32_t n;
+	/* The n point twiddle factors, as in fft_plan_{{ type.suffix }}_t */
+	const complex_{{ type.suffix }}_t *twiddle;
+	uint32_t twiddle_stride;
+};
+{%- if not fft.table_only %}
 
 /* Workspace bytes needed for an n point plan, for sizing static buffers. Does
  * not validate n, use fft_plan_size_{{ type.suffix }}() for that */
 #define FFT_PLAN_SIZE_{{ type.suffix | upper }}(n) (((n) / 2) * sizeof(complex_{{ type.suffix }}_t))
 
+/* Workspace bytes needed for an n sample real plan, the same as an n point
+ * complex plan. Does not validate n */
+#define RFFT_PLAN_SIZE_{{ type.suffix | upper }}(n) FFT_PLAN_SIZE_{{ type.suffix | upper }}(n)
+
 /* Returns the workspace bytes needed for an n point plan, or 0 if n is not a
  * power of two of at least 2 */
 size_t fft_plan_size_{{ type.suffix }}(uint32_t n);
+
+/* Returns the workspace bytes needed for an n sample real plan, or 0 if n is
+ * not a power of two of at least 2 */
+size_t rfft_plan_size_{{ type.suffix }}(uint32_t n);
 
 /* Fills the twiddle table into work and initialises plan for n point
  * transforms. Errors are checked in the order they are listed in
  * FFT_STATUS_E, and plan is left unmodified on any error */
 FFT_STATUS_E fft_plan_init_{{ type.suffix }}(struct fft_plan_{{ type.suffix }}_t *plan, uint32_t n, void *work,
 								 size_t work_bytes);
+
+/* fft_plan_init_{{ type.suffix }}() for the transforms of n real samples */
+FFT_STATUS_E rfft_plan_init_{{ type.suffix }}(struct rfft_plan_{{ type.suffix }}_t *plan, uint32_t n, void *work,
+								  size_t work_bytes);
+{%- endif %}
+{%- if fft.table %}
+
+/* Largest n supported by the generated twiddle table, chosen when the sources
+ * are generated */
+#define FFT_TABLE_MAX_N_{{ type.suffix | upper }} {{ fft.table.max_n }}u
+
+/* Initialises plan for n point transforms using the generated const twiddle
+ * table, so no workspace is needed. Returns FFT_ERR_NULL_POINTER, or
+ * FFT_ERR_INVALID_SIZE if n is not a power of two from 2 to
+ * FFT_TABLE_MAX_N_{{ type.suffix | upper }}, leaving plan unmodified on error */
+FFT_STATUS_E fft_plan_init_table_{{ type.suffix }}(struct fft_plan_{{ type.suffix }}_t *plan, uint32_t n);
+
+/* fft_plan_init_table_{{ type.suffix }}() for the transforms of n real samples, also up to
+ * FFT_TABLE_MAX_N_{{ type.suffix | upper }} */
+FFT_STATUS_E rfft_plan_init_table_{{ type.suffix }}(struct rfft_plan_{{ type.suffix }}_t *plan, uint32_t n);
+{%- endif %}
 
 /* In place forward FFT of plan->n values, unscaled. plan must have been
  * initialised successfully, no further validation is done */
@@ -76,9 +132,27 @@ void fft_{{ type.suffix }}(const struct fft_plan_{{ type.suffix }}_t *plan, comp
  * as fft_{{ type.suffix }}() */
 void ifft_{{ type.suffix }}(const struct fft_plan_{{ type.suffix }}_t *plan, complex_{{ type.suffix }}_t *x);
 
+/* In place forward FFT of plan->n real samples, unscaled. The n / 2 + 1 bins
+ * from 0 to n / 2 are returned packed into the same n values, as interleaved
+ * real and imaginary parts:
+ * - x[0] is bin 0 and x[1] is bin n / 2, which are both real
+ * - x[2k] and x[2k + 1] are the real and imaginary parts of bin k, for
+ *   0 < k < n / 2
+ * The other bins are the complex conjugates, bin n - k of bin k. x can be
+ * read as n / 2 complex_{{ type.suffix }}_t, with the imaginary part of the first holding
+ * bin n / 2. This is the same layout as CMSIS-DSP's arm_rfft_fast_f32() */
+void rfft_{{ type.suffix }}(const struct rfft_plan_{{ type.suffix }}_t *plan, {{ type.name }} *x);
+
+/* In place inverse of rfft_{{ type.suffix }}(), from the packed bins back to plan->n real
+ * samples, scaled by 1 / n. The bins are treated as conjugate symmetric, so
+ * the imaginary parts of bins 0 and n / 2 are taken as 0 */
+void irfft_{{ type.suffix }}(const struct rfft_plan_{{ type.suffix }}_t *plan, {{ type.name }} *x);
+{%- if not fft.table_only %}
+
 /* Direct O(N^2) DFT for any n, as a slow reference. data_in and data_out must
  * not overlap */
 void dft_{{ type.suffix }}(const complex_{{ type.suffix }}_t *data_in, complex_{{ type.suffix }}_t *data_out, uint32_t n);
+{%- endif %}
 
 #ifdef __cplusplus
 }
