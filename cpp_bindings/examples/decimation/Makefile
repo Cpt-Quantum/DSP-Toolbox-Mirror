@@ -33,7 +33,7 @@ PY_DATA_COMPARE_ARGS += --input $(INPUT_BIN) --output $(OUTPUT_BIN)
 LINKER_FLAGS += $(CPP_WRAPPER_LDFLAGS)
 
 decimation:
-	$(CC) $(CFLAGS) decimation_test.cpp $(CPP_WRAPPER_SRC) -o decimation_test $(LINKER_FLAGS)
+	$(CC) $(CFLAGS) decimation_test.cpp $(CPP_WRAPPER_FILTER_SRC) $(CPP_WRAPPER_WAVEFORM_SRC) -o decimation_test $(LINKER_FLAGS)
 
 run_all: decimation
 	./decimation_test

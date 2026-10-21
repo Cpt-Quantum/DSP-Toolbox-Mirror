@@ -36,7 +36,7 @@ PY_PLOT_ARGS += --iir-ba $(IIR_BA_OUTPUT_BIN)
 LINKER_FLAGS += $(CPP_WRAPPER_LDFLAGS)
 
 multithread:
-	$(CC) $(CFLAGS) multithread_test.cpp $(CPP_WRAPPER_SRC) -o multithread_test $(LINKER_FLAGS)
+	$(CC) $(CFLAGS) multithread_test.cpp $(CPP_WRAPPER_FILTER_SRC) $(CPP_WRAPPER_WAVEFORM_SRC) -o multithread_test $(LINKER_FLAGS)
 
 design:
 	$(PY) filter_design.py

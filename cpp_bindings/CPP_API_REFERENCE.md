@@ -1,6 +1,6 @@
 # DSP Toolbox C++ API Reference
 
-This document describes the high-level C++ wrapper classes available in `cpp_wrapper.h`. These classes provide a more idiomatic C++ interface for the underlying DSP-Toolbox C library, using `std::vector`, `std::unique_ptr`, and templates.
+This document describes the high-level C++ wrapper classes for the DSP-Toolbox C library. These classes provide a more idiomatic C++ interface, using `std::vector`, `std::unique_ptr`, and templates.
 
 All wrapper classes are templates that support the following numerical types (`num_t`):
 
@@ -13,17 +13,37 @@ All wrapper classes are templates that support the following numerical types (`n
 
 ## Table of Contents
 
+* [Headers and Sources](#headers-and-sources)
 * [Waveform Generation (`waveform_x`)](#waveform-generation-waveform_x)
 * [FIR Filters (`fir`)](#fir-filters-fir)
 * [IIR Filters (Direct Form) (`iir_ba`)](#iir-filters-direct-form-iir_ba)
 * [IIR Filters (SOS/Biquad) (`iir_sos`)](#iir-filters-sosbiquad-iir_sos)
 * [Averaging (`average`, `power_average`, `moving_avg`)](#averaging-average-power_average-moving_avg)
+* [Complex Math (`complex_t`, `polar_t`, `complex_*`)](#complex-math-complex_t-polar_t-complex_)
 * [JSON Parsing (`json_filter_parse`)](#json-parsing-json_filter_parse)
 * [Copying Filters (Multi-channel and Multi-threaded Use)](#copying-filters-multi-channel-and-multi-threaded-use)
 
 ---
 
+## Headers and Sources
+
+Each module has its own header, and `cpp_wrapper.h` includes all of them. Include only the modules you use, and build the matching sources from `cpp_wrapper.mk`:
+
+| Header | Contents | Sources (`cpp_wrapper.mk`) |
+|---|---|---|
+| `cpp_wrapper_average.h` | `average`, `power_average`, `moving_avg` | `CPP_WRAPPER_AVERAGE_SRC` |
+| `cpp_wrapper_complex.h` | `complex_t`, `polar_t`, the `complex_*` functions and operators | `CPP_WRAPPER_COMPLEX_SRC` |
+| `cpp_wrapper_filter.h` | `json_filter_parse`, `fir`, `iir_ba`, `iir_sos` | `CPP_WRAPPER_FILTER_SRC` |
+| `cpp_wrapper_waveform.h` | `waveform_t`, `waveform_x` | `CPP_WRAPPER_WAVEFORM_SRC` |
+| `cpp_wrapper.h` | All of the above | `CPP_WRAPPER_SRC` |
+
+For example, a project using only the filters would set `CPP_WRAPPER_ROOT_DIR`, `include cpp_wrapper.mk`, then compile with `$(CPP_WRAPPER_FILTER_SRC)` and link with `$(CPP_WRAPPER_LDFLAGS)`. `cpp_data_io.h` uses `cpp_wrapper_waveform.h`, so it also needs `CPP_WRAPPER_WAVEFORM_SRC`.
+
+---
+
 ## Waveform Generation (`waveform_x`)
+
+Header: `cpp_wrapper_waveform.h`
 
 A container and generator class for real-valued waveforms.
 
@@ -47,6 +67,8 @@ The times and wave properties are in `math_t`, the floating point type the wavef
 
 ## FIR Filters (`fir`)
 
+Header: `cpp_wrapper_filter.h`
+
 A wrapper for Finite Impulse Response filtering.
 
 ### Constructors
@@ -67,6 +89,8 @@ A wrapper for Finite Impulse Response filtering.
 
 ## IIR Filters (Direct Form) (`iir_ba`)
 
+Header: `cpp_wrapper_filter.h`
+
 A wrapper for Direct Form I (ba) Infinite Impulse Response filters.
 
 ### Constructors
@@ -85,6 +109,8 @@ A wrapper for Direct Form I (ba) Infinite Impulse Response filters.
 
 ## IIR Filters (SOS/Biquad) (`iir_sos`)
 
+Header: `cpp_wrapper_filter.h`
+
 A wrapper for Second Order Sections (SOS) IIR filters, which are more numerically stable than Direct Form for higher-order filters.
 
 ### Constructors
@@ -102,6 +128,8 @@ A wrapper for Second Order Sections (SOS) IIR filters, which are more numericall
 ---
 
 ## Averaging (`average`, `power_average`, `moving_avg`)
+
+Header: `cpp_wrapper_average.h`
 
 Wrappers for the averaging functions in the [C API reference](../API_REFERENCE.md#averaging). The integer types sum in `int64_t` and round each average to the nearest value.
 
@@ -132,7 +160,44 @@ Copies of a `moving_avg` have the same window length, with their own empty windo
 
 ---
 
+## Complex Math (`complex_t`, `polar_t`, `complex_*`)
+
+Header: `cpp_wrapper_complex.h`
+
+Wrappers for the complex functions in the [C API reference](../API_REFERENCE.md#complex-math), working on the C structs directly. `complex_t<num_t>` and `polar_t<num_t>` are the C structs for `num_t`, e.g. `complex_t<float>` is `complex_float_t`. The functions are templates on the struct type, so the type is deduced from the arguments, and they only accept the complex structs (and the polar structs for `complex_from_polar`).
+
+The `int32_t` and `int64_t` types are fixed point, rounded and saturated, see [Integer complex numbers](../API_REFERENCE.md#integer-complex-numbers-fixed-point). Their `complex_multiply` and `complex_divide` take the number of fractional bits of the format as a trailing `uint32_t frac_bits` (e.g. 31 for Q31), and the float and double versions don't. The phase is in `math_type`, `complex_traits<num_t>::math_type`: `num_t` for float and double, float for `int32_t` and double for `int64_t`.
+
+### Functions
+
+`C` is a complex struct, such as `complex_t<float>`, and `P` the polar struct of the same type.
+
+* `C complex_add(C x, C y)`, `C complex_subtract(C x, C y)`
+* `C complex_multiply(C x, C y)`, `C complex_divide(C x, C y)`: float and double only.
+* `C complex_multiply(C x, C y, uint32_t frac_bits)`, `C complex_divide(C x, C y, uint32_t frac_bits)`: integer types only.
+* `C complex_conjugate(C x)`
+* `num_t complex_magnitude(C x)`
+* `math_type complex_phase(C x)`: `atan2(imag, real)` in radians, from -pi to pi.
+* `P complex_to_polar(C x)`, `C complex_from_polar(P p)`
+
+### Operators
+
+* `x + y`, `x - y` for all the complex structs.
+* `x * y`, `x / y` for float and double only, as the integer types need `frac_bits`.
+
+### Vector and pointer versions
+
+Each function above also takes vectors, applying it to each element, e.g. `void complex_multiply(const std::vector<C> &x, const std::vector<C> &y, std::vector<C> &out)`, with `frac_bits` last for the integer types. `out` is resized to the length of `x`, and may be the same vector as `x` or `y`, so `complex_multiply(x, osc, x)` works in place. Throws `std::invalid_argument` if `x` and `y` are different lengths. `complex_magnitude` writes a `std::vector<num_t>`, `complex_phase` a `std::vector<math_type>`, `complex_to_polar` a `std::vector<P>`, and `complex_from_polar` takes a `std::vector<P>`.
+
+The pointer overloads take a length instead, e.g. `void complex_add(const C *x, const C *y, C *out, uint32_t length)`, for working at an offset within a larger buffer without copying. `out` may be the same buffer as `x` or `y`.
+
+See `examples/complex`, which mixes a complex tone down in frequency in float and Q31.
+
+---
+
 ## JSON Parsing (`json_filter_parse`)
+
+Header: `cpp_wrapper_filter.h`
 
 A helper class for managing cJSON file lifecycles and node extraction.
 
@@ -162,4 +227,4 @@ Because the only shared data is read-only, different copies can be run on differ
 
 ## Implementation Details
 
-The C++ wrappers utilize **Traits** to map template types to the correct C function calls (e.g., `fir_traits<float>` calls `fir_filter_float`). All memory management for C-allocated arrays is handled via custom deleters in `std::unique_ptr` or through `std::vector` for high-level data.
+The C++ wrappers utilize **Traits** to map template types to the correct C function calls (e.g., `fir_traits<float>` calls `fir_filter_float`). Each header follows the same layout: the C headers, the standard headers, then a `<module>_traits<num_t>` struct with float, double, int32_t and int64_t specializations in that order, then the public classes and functions. All memory management for C-allocated arrays is handled via custom deleters in `std::unique_ptr` or through `std::vector` for high-level data.

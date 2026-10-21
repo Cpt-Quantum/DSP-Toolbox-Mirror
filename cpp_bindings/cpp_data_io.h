@@ -1,7 +1,7 @@
 #ifndef CPP_DATA_IO_H
 #define CPP_DATA_IO_H
 
-#include "cpp_wrapper.h"
+#include "cpp_wrapper_waveform.h"
 #include <fstream>
 #include <iostream>
 #include <stdexcept>

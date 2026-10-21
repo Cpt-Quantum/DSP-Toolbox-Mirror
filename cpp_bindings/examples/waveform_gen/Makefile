@@ -10,7 +10,7 @@ include ../../cpp_wrapper.mk
 LINKER_FLAGS += $(CPP_WRAPPER_LDFLAGS)
 
 spectrum:
-	$(CC) $(CFLAGS) waveform_gen_test.cpp $(CPP_WRAPPER_SRC) -o waveform_gen_test $(LINKER_FLAGS)
+	$(CC) $(CFLAGS) waveform_gen_test.cpp $(CPP_WRAPPER_WAVEFORM_SRC) -o waveform_gen_test $(LINKER_FLAGS)
 
 clean:
 	rm waveform_gen_test

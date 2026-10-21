@@ -2,7 +2,7 @@
 #define CPP_WRAPPER_H
 
 #include "../../cpp_data_io.h"
-#include "../../cpp_wrapper.h"
+#include "../../cpp_wrapper_filter.h"
 #include <chrono>
 #include <iosfwd>
 #include <iostream>
