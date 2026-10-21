@@ -6,17 +6,75 @@ extern "C" {
 #endif
 
 #include <stdint.h>
+{%- set T = type.name %}
+{%- set C = "complex_" ~ type.suffix ~ "_t" %}
+{%- set P = "polar_" ~ type.suffix ~ "_t" %}
+{%- set Q = ", uint32_t frac_bits" if type.fixed_point else "" %}
 
-/* This defines the type for a single complex number for type {{ type.name }} */
+/* This defines the type for a single complex number for type {{ T }} */
 typedef struct {
-	{{ type.name }} real;
-	{{ type.name }} imag;
-} complex_{{ type.suffix }}_t;
+	{{ T }} real;
+	{{ T }} imag;
+} {{ C }};
 
-complex_{{ type.suffix }}_t complex_multiply_{{ type.suffix }}(complex_{{ type.suffix }}_t x, complex_{{ type.suffix }}_t y);
-complex_{{ type.suffix }}_t complex_add_{{ type.suffix }}(complex_{{ type.suffix }}_t x, complex_{{ type.suffix }}_t y);
-complex_{{ type.suffix }}_t complex_conjugate_{{ type.suffix }}(complex_{{ type.suffix }}_t x);
-{{ type.name }} complex_magnitude_{{ type.suffix }}(complex_{{ type.suffix }}_t x);
+/* A complex number in polar form, magnitude * e^(j phase), with the phase in
+ * radians
+{%- if type.fixed_point %}. The phase is {{ type.math_type }}, as radians can't be held in {{ T }}
+{%- endif %} */
+typedef struct {
+	{{ T }} magnitude;
+	{{ type.math_type }} phase;
+} {{ P }};
+{%- if type.fixed_point %}
+
+/* {{ T }} complex numbers are fixed point. Every result is rounded to the nearest
+ * value and saturated to the range of {{ T }}, rather than wrapping.
+ *
+ * multiply and divide take the number of fractional bits of the format,
+ * frac_bits, from 0 to {{ 31 if T == "int32_t" else 63 }}. Both operands and the result are in the same
+ * format, e.g. 31 for Q31 (or Q1.31) values. frac_bits = 0 is plain integer
+ * maths. Halves round up, as for the integer filters.
+ *
+ * add, subtract, conjugate, multiply and magnitude use integer maths only.
+ * divide, phase and the polar conversions are calculated in double, then
+ * rounded back to {{ T }} */
+{%- else %}
+
+/* The functions follow the usual {{ T }} rules, so overflow gives infinity and
+ * 0 / 0 gives NaN */
+{%- endif %}
+
+{{ C }} complex_add_{{ type.suffix }}({{ C }} x, {{ C }} y);
+{{ C }} complex_subtract_{{ type.suffix }}({{ C }} x, {{ C }} y);
+{{ C }} complex_multiply_{{ type.suffix }}({{ C }} x, {{ C }} y{{ Q }});
+/* x / y.
+{%- if type.fixed_point %} Dividing by 0 saturates each part towards the sign of that part
+ * of x, or gives 0 where it is 0
+{%- else %} Uses Smith's method, so the intermediate values don't overflow or
+ * underflow unless the result does. Dividing by 0 gives NaN
+{%- endif %} */
+{{ C }} complex_divide_{{ type.suffix }}({{ C }} x, {{ C }} y{{ Q }});
+{{ C }} complex_conjugate_{{ type.suffix }}({{ C }} x);
+/* sqrt(real^2 + imag^2)
+{%- if type.fixed_point %}, calculated exactly and then rounded
+{%- endif %} */
+{{ T }} complex_magnitude_{{ type.suffix }}({{ C }} x);
+/* atan2(imag, real) in radians, from -pi to pi */
+{{ type.math_type }} complex_phase_{{ type.suffix }}({{ C }} x);
+{{ P }} complex_to_polar_{{ type.suffix }}({{ C }} x);
+{{ C }} complex_from_polar_{{ type.suffix }}({{ P }} p);
+
+/* Array versions of the functions above, applying them to each of length
+ * elements. out may be the same buffer as x or y */
+void complex_add_array_{{ type.suffix }}(const {{ C }} *x, const {{ C }} *y, {{ C }} *out, uint32_t length);
+void complex_subtract_array_{{ type.suffix }}(const {{ C }} *x, const {{ C }} *y, {{ C }} *out, uint32_t length);
+void complex_multiply_array_{{ type.suffix }}(const {{ C }} *x, const {{ C }} *y, {{ C }} *out, uint32_t length{{ Q }});
+void complex_divide_array_{{ type.suffix }}(const {{ C }} *x, const {{ C }} *y, {{ C }} *out, uint32_t length{{ Q }});
+void complex_conjugate_array_{{ type.suffix }}(const {{ C }} *x, {{ C }} *out, uint32_t length);
+void complex_magnitude_array_{{ type.suffix }}(const {{ C }} *x, {{ T }} *out, uint32_t length);
+void complex_phase_array_{{ type.suffix }}(const {{ C }} *x, {{ type.math_type }} *out, uint32_t length);
+void complex_to_polar_array_{{ type.suffix }}(const {{ C }} *x, {{ P }} *out, uint32_t length);
+void complex_from_polar_array_{{ type.suffix }}(const {{ P }} *p, {{ C }} *out, uint32_t length);
 
 #ifdef __cplusplus
 }

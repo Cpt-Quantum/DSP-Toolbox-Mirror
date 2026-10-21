@@ -1,39 +1,408 @@
+#include <stdbool.h>
 #include <stdint.h>
 #include <math.h>
 
 #include "complex_{{ type.suffix }}.h"
+{%- set T = type.name %}
+{%- set S = type.suffix %}
+{%- set C = "complex_" ~ type.suffix ~ "_t" %}
+{%- set P = "polar_" ~ type.suffix ~ "_t" %}
+{%- set Q = ", uint32_t frac_bits" if type.fixed_point else "" %}
+{%- set QA = ", frac_bits" if type.fixed_point else "" %}
+{%- if type.fixed_point %}
+{%- set MAX = "INT32_MAX" if T == "int32_t" else "INT64_MAX" %}
+{%- set MIN = "INT32_MIN" if T == "int32_t" else "INT64_MIN" %}
 
-complex_{{ type.suffix }}_t complex_multiply_{{ type.suffix }}(complex_{{ type.suffix }}_t x, complex_{{ type.suffix }}_t y) 
+/* Rounds v to the nearest integer, halves up, and saturates it to the range
+ * of {{ T }}. NaN gives 0 */
+static {{ T }} from_double_{{ S }}(double v) {
+	if (isnan(v)) {
+		return 0;
+	}
+	const double rounded = floor(v + 0.5);
+{%- if T == "int32_t" %}
+	if (rounded >= 2147483647.0) {
+		return INT32_MAX;
+	}
+	if (rounded <= -2147483648.0) {
+		return INT32_MIN;
+	}
+{%- else %}
+	/* 2^63 is the smallest double that doesn't fit */
+	if (rounded >= 9223372036854775808.0) {
+		return INT64_MAX;
+	}
+	if (rounded <= -9223372036854775808.0) {
+		return INT64_MIN;
+	}
+{%- endif %}
+	return ({{ T }})rounded;
+}
+{%- if T == "int32_t" %}
+
+static int32_t saturate_int32(int64_t v) {
+	return v > INT32_MAX ? INT32_MAX : v < INT32_MIN ? INT32_MIN : (int32_t)v;
+}
+
+/* p + q for two products of int32_t values. Only the sum of two products of
+ * -2^31 can overflow, so the sum is limited to 2^31 inside the int64_t range,
+ * which leaves room for the rounding in round_shift_int32(). Anything past
+ * the limit saturates the int32_t result anyway */
+static int64_t add_products_int32(int64_t p, int64_t q) {
+	const int64_t limit = INT64_MAX - (INT64_C(1) << 31);
+	if (p > 0 && q > limit - p) {
+		return limit;
+	}
+	if (p < 0 && q < -limit - p) {
+		return -limit;
+	}
+	return p + q;
+}
+
+/* v / 2^frac_bits, rounded (halves up) and saturated */
+static int32_t round_shift_int32(int64_t v, uint32_t frac_bits) {
+	const int64_t half = frac_bits > 0 ? INT64_C(1) << (frac_bits - 1) : 0;
+	return saturate_int32((v + half) >> frac_bits);
+}
+
+/* Square root of n rounded to the nearest integer, calculated bit by bit.
+ * When the loop finishes, n holds the remainder n - root^2, and the root
+ * rounds up when the remainder is more than the root */
+static uint64_t sqrt_rounded_int32(uint64_t n) {
+	uint64_t root = 0;
+	uint64_t bit = UINT64_C(1) << 62;
+	while (bit > n) {
+		bit >>= 2;
+	}
+	while (bit != 0) {
+		if (n >= root + bit) {
+			n -= root + bit;
+			root = (root >> 1) + bit;
+		} else {
+			root >>= 1;
+		}
+		bit >>= 2;
+	}
+	return root + (n > root ? 1 : 0);
+}
+{%- else %}
+
+/* There's no portable 128 bit integer type, so the int64_t products are held
+ * in two's complement in a pair of uint64_t */
+typedef struct {
+	uint64_t hi;
+	uint64_t lo;
+} wide_int64_t;
+
+static wide_int64_t wide_from_int64(int64_t v) {
+	wide_int64_t w;
+	w.lo = (uint64_t)v;
+	w.hi = v < 0 ? UINT64_MAX : 0;
+	return w;
+}
+
+static bool wide_negative_int64(wide_int64_t w) {
+	return (w.hi >> 63) != 0;
+}
+
+static wide_int64_t wide_add_int64(wide_int64_t a, wide_int64_t b) {
+	wide_int64_t w;
+	w.lo = a.lo + b.lo;
+	w.hi = a.hi + b.hi + (w.lo < a.lo ? 1 : 0);
+	return w;
+}
+
+static wide_int64_t wide_subtract_int64(wide_int64_t a, wide_int64_t b) {
+	wide_int64_t w;
+	w.lo = a.lo - b.lo;
+	w.hi = a.hi - b.hi - (a.lo < b.lo ? 1 : 0);
+	return w;
+}
+
+static wide_int64_t wide_negate_int64(wide_int64_t a) {
+	return wide_subtract_int64(wide_from_int64(0), a);
+}
+
+/* Unsigned comparison, a >= b */
+static bool wide_at_least_int64(wide_int64_t a, wide_int64_t b) {
+	return a.hi != b.hi ? a.hi > b.hi : a.lo >= b.lo;
+}
+
+/* Logical shift right by shift, from 0 to 63 */
+static wide_int64_t wide_shift_right_int64(wide_int64_t a, uint32_t shift) {
+	if (shift == 0) {
+		return a;
+	}
+	wide_int64_t w;
+	w.lo = (a.lo >> shift) | (a.hi << (64 - shift));
+	w.hi = a.hi >> shift;
+	return w;
+}
+
+/* Full product of two uint64_t, from four 32 bit products */
+static wide_int64_t wide_multiply_unsigned_int64(uint64_t a, uint64_t b) {
+	const uint64_t a_lo = a & 0xFFFFFFFFu, a_hi = a >> 32;
+	const uint64_t b_lo = b & 0xFFFFFFFFu, b_hi = b >> 32;
+	const uint64_t lo_lo = a_lo * b_lo;
+	const uint64_t hi_lo = a_hi * b_lo;
+	const uint64_t lo_hi = a_lo * b_hi;
+	const uint64_t hi_hi = a_hi * b_hi;
+	/* The middle column can't overflow, as each part is below 2^32 */
+	const uint64_t middle = (lo_lo >> 32) + (hi_lo & 0xFFFFFFFFu) + (lo_hi & 0xFFFFFFFFu);
+	wide_int64_t w;
+	w.lo = (middle << 32) | (lo_lo & 0xFFFFFFFFu);
+	w.hi = hi_hi + (hi_lo >> 32) + (lo_hi >> 32) + (middle >> 32);
+	return w;
+}
+
+/* The magnitude of v as a uint64_t, which also holds -INT64_MIN */
+static uint64_t magnitude_int64(int64_t v) {
+	return v < 0 ? 0 - (uint64_t)v : (uint64_t)v;
+}
+
+static wide_int64_t wide_multiply_int64(int64_t a, int64_t b) {
+	const wide_int64_t w = wide_multiply_unsigned_int64(magnitude_int64(a), magnitude_int64(b));
+	return (a < 0) != (b < 0) ? wide_negate_int64(w) : w;
+}
+
+/* a + b, saturating at the ends of the signed 128 bit range. Values that
+ * large saturate the int64_t result anyway */
+static wide_int64_t wide_add_saturate_int64(wide_int64_t a, wide_int64_t b) {
+	const wide_int64_t w = wide_add_int64(a, b);
+	if (wide_negative_int64(a) == wide_negative_int64(b) && wide_negative_int64(w) != wide_negative_int64(a)) {
+		wide_int64_t limit;
+		limit.hi = wide_negative_int64(a) ? UINT64_C(1) << 63 : UINT64_MAX >> 1;
+		limit.lo = wide_negative_int64(a) ? 0 : UINT64_MAX;
+		return limit;
+	}
+	return w;
+}
+
+/* v / 2^frac_bits, rounded (halves up) and saturated */
+static int64_t round_shift_int64(wide_int64_t v, uint32_t frac_bits) {
+	if (frac_bits > 0) {
+		v = wide_add_saturate_int64(v, wide_from_int64(INT64_C(1) << (frac_bits - 1)));
+	}
+	/* Arithmetic shift, filling with the sign bit */
+	const bool negative = wide_negative_int64(v);
+	v = wide_shift_right_int64(v, frac_bits);
+	if (negative && frac_bits > 0) {
+		v.hi |= UINT64_MAX << (64 - frac_bits);
+	}
+	/* It fits when the high half is the sign extension of the low half */
+	if (v.hi != ((v.lo >> 63) != 0 ? UINT64_MAX : 0)) {
+		return negative ? INT64_MIN : INT64_MAX;
+	}
+	return (int64_t)v.lo;
+}
+
+/* Square root of n rounded to the nearest integer, calculated bit by bit as
+ * for the int32_t magnitude. n is below 2^127, so the root fits a uint64_t */
+static uint64_t sqrt_rounded_int64(wide_int64_t n) {
+	wide_int64_t root = wide_from_int64(0);
+	wide_int64_t bit;
+	bit.hi = UINT64_C(1) << 62;
+	bit.lo = 0;
+	while (wide_at_least_int64(bit, n) && !(bit.hi == n.hi && bit.lo == n.lo)) {
+		bit = wide_shift_right_int64(bit, 2);
+	}
+	while (bit.hi != 0 || bit.lo != 0) {
+		const wide_int64_t trial = wide_add_int64(root, bit);
+		if (wide_at_least_int64(n, trial)) {
+			n = wide_subtract_int64(n, trial);
+			root = wide_add_int64(wide_shift_right_int64(root, 1), bit);
+		} else {
+			root = wide_shift_right_int64(root, 1);
+		}
+		bit = wide_shift_right_int64(bit, 2);
+	}
+	/* Rounds up when the remainder is more than the root */
+	const bool round_up = n.hi != 0 || n.lo > root.lo;
+	return root.lo + (round_up ? 1 : 0);
+}
+{%- endif %}
+{%- endif %}
+
+{{ C }} complex_multiply_{{ S }}({{ C }} x, {{ C }} y{{ Q }})
 {
-	complex_{{ type.suffix }}_t ret;
-
+	{{ C }} ret;
+{% if not type.fixed_point %}
 	ret.real = (x.real * y.real) - (x.imag * y.imag);
 	ret.imag = (x.real * y.imag) + (y.real * x.imag);
+{%- elif T == "int32_t" %}
+	ret.real = round_shift_int32(add_products_int32((int64_t)x.real * y.real, -((int64_t)x.imag * y.imag)), frac_bits);
+	ret.imag = round_shift_int32(add_products_int32((int64_t)x.real * y.imag, (int64_t)x.imag * y.real), frac_bits);
+{%- else %}
+	const wide_int64_t real = wide_add_saturate_int64(wide_multiply_int64(x.real, y.real),
+													  wide_negate_int64(wide_multiply_int64(x.imag, y.imag)));
+	const wide_int64_t imag = wide_add_saturate_int64(wide_multiply_int64(x.real, y.imag),
+													  wide_multiply_int64(x.imag, y.real));
+	ret.real = round_shift_int64(real, frac_bits);
+	ret.imag = round_shift_int64(imag, frac_bits);
+{%- endif %}
 
 	return ret;
 }
 
-complex_{{ type.suffix }}_t complex_add_{{ type.suffix }}(complex_{{ type.suffix }}_t x, complex_{{ type.suffix }}_t y)
+{{ C }} complex_add_{{ S }}({{ C }} x, {{ C }} y)
 {
-	complex_{{ type.suffix }}_t ret;
-
+	{{ C }} ret;
+{% if not type.fixed_point %}
 	ret.real = x.real + y.real;
 	ret.imag = x.imag + y.imag;
+{%- elif T == "int32_t" %}
+	ret.real = saturate_int32((int64_t)x.real + y.real);
+	ret.imag = saturate_int32((int64_t)x.imag + y.imag);
+{%- else %}
+	ret.real = round_shift_int64(wide_add_int64(wide_from_int64(x.real), wide_from_int64(y.real)), 0);
+	ret.imag = round_shift_int64(wide_add_int64(wide_from_int64(x.imag), wide_from_int64(y.imag)), 0);
+{%- endif %}
 
 	return ret;
 }
 
-complex_{{ type.suffix }}_t complex_conjugate_{{ type.suffix }}(complex_{{ type.suffix }}_t x)
+{{ C }} complex_subtract_{{ S }}({{ C }} x, {{ C }} y)
 {
-	complex_{{ type.suffix }}_t ret;
+	{{ C }} ret;
+{% if not type.fixed_point %}
+	ret.real = x.real - y.real;
+	ret.imag = x.imag - y.imag;
+{%- elif T == "int32_t" %}
+	ret.real = saturate_int32((int64_t)x.real - y.real);
+	ret.imag = saturate_int32((int64_t)x.imag - y.imag);
+{%- else %}
+	ret.real = round_shift_int64(wide_subtract_int64(wide_from_int64(x.real), wide_from_int64(y.real)), 0);
+	ret.imag = round_shift_int64(wide_subtract_int64(wide_from_int64(x.imag), wide_from_int64(y.imag)), 0);
+{%- endif %}
+
+	return ret;
+}
+
+{{ C }} complex_divide_{{ S }}({{ C }} x, {{ C }} y{{ Q }})
+{
+	{{ C }} ret;
+{% if not type.fixed_point %}
+	/* Divides through by the larger part of y, so the denominator stays near
+	 * the size of y */
+	if (fabs{{ type.math_suffix }}(y.real) >= fabs{{ type.math_suffix }}(y.imag)) {
+		const {{ T }} ratio = y.imag / y.real;
+		const {{ T }} denominator = y.real + y.imag * ratio;
+		ret.real = (x.real + x.imag * ratio) / denominator;
+		ret.imag = (x.imag - x.real * ratio) / denominator;
+	} else {
+		const {{ T }} ratio = y.real / y.imag;
+		const {{ T }} denominator = y.real * ratio + y.imag;
+		ret.real = (x.real * ratio + x.imag) / denominator;
+		ret.imag = (x.imag * ratio - x.real) / denominator;
+	}
+{%- else %}
+	if (y.real == 0 && y.imag == 0) {
+		ret.real = x.real > 0 ? {{ MAX }} : x.real < 0 ? {{ MIN }} : 0;
+		ret.imag = x.imag > 0 ? {{ MAX }} : x.imag < 0 ? {{ MIN }} : 0;
+		return ret;
+	}
+	/* x * conj(y) / |y|^2. The squares of {{ T }} values can't overflow a
+	 * double, and the quotient is scaled up by 2^frac_bits exactly */
+	const double a = (double)x.real, b = (double)x.imag;
+	const double c = (double)y.real, d = (double)y.imag;
+	const double denominator = c * c + d * d;
+	ret.real = from_double_{{ S }}(ldexp((a * c + b * d) / denominator, (int)frac_bits));
+	ret.imag = from_double_{{ S }}(ldexp((b * c - a * d) / denominator, (int)frac_bits));
+{%- endif %}
+
+	return ret;
+}
+
+{{ C }} complex_conjugate_{{ S }}({{ C }} x)
+{
+	{{ C }} ret;
 
 	ret.real = x.real;
+{%- if not type.fixed_point %}
 	ret.imag = - x.imag;
+{%- else %}
+	/* -{{ MIN }} doesn't fit, so saturates */
+	ret.imag = x.imag == {{ MIN }} ? {{ MAX }} : -x.imag;
+{%- endif %}
 
 	return ret;
 }
 
-{{ type.name }} complex_magnitude_{{ type.suffix }}(complex_{{ type.suffix }}_t x)
+{{ T }} complex_magnitude_{{ S }}({{ C }} x)
 {
+{%- if not type.fixed_point %}
 	return {{ type.math_prefix }}sqrt{{ type.math_suffix }}( (x.real * x.real) + (x.imag * x.imag) );
+{%- elif T == "int32_t" %}
+	/* Each square is at most 2^62, so the sum fits a uint64_t exactly */
+	const uint64_t n = (uint64_t)((int64_t)x.real * x.real) + (uint64_t)((int64_t)x.imag * x.imag);
+	const uint64_t magnitude = sqrt_rounded_int32(n);
+	return magnitude > INT32_MAX ? INT32_MAX : (int32_t)magnitude;
+{%- else %}
+	/* Each square is at most 2^126, so the sum fits 128 bits exactly */
+	const wide_int64_t n = wide_add_int64(wide_multiply_unsigned_int64(magnitude_int64(x.real), magnitude_int64(x.real)),
+										  wide_multiply_unsigned_int64(magnitude_int64(x.imag), magnitude_int64(x.imag)));
+	const uint64_t magnitude = sqrt_rounded_int64(n);
+	return magnitude > INT64_MAX ? INT64_MAX : (int64_t)magnitude;
+{%- endif %}
+}
+
+{{ type.math_type }} complex_phase_{{ S }}({{ C }} x)
+{
+{%- if not type.fixed_point %}
+	return atan2{{ type.math_suffix }}(x.imag, x.real);
+{%- else %}
+	return ({{ type.math_type }})atan2((double)x.imag, (double)x.real);
+{%- endif %}
+}
+
+{{ P }} complex_to_polar_{{ S }}({{ C }} x)
+{
+	{{ P }} ret;
+
+	ret.magnitude = complex_magnitude_{{ S }}(x);
+	ret.phase = complex_phase_{{ S }}(x);
+
+	return ret;
+}
+
+{{ C }} complex_from_polar_{{ S }}({{ P }} p)
+{
+	{{ C }} ret;
+{% if not type.fixed_point %}
+	ret.real = p.magnitude * cos{{ type.math_suffix }}(p.phase);
+	ret.imag = p.magnitude * sin{{ type.math_suffix }}(p.phase);
+{%- else %}
+	const double magnitude = (double)p.magnitude;
+	ret.real = from_double_{{ S }}(magnitude * cos((double)p.phase));
+	ret.imag = from_double_{{ S }}(magnitude * sin((double)p.phase));
+{%- endif %}
+
+	return ret;
+}
+{%- for name in ["add", "subtract", "multiply", "divide"] %}
+{%- set extra = Q if name in ["multiply", "divide"] else "" %}
+{%- set extra_arg = QA if name in ["multiply", "divide"] else "" %}
+
+void complex_{{ name }}_array_{{ S }}(const {{ C }} *x, const {{ C }} *y, {{ C }} *out, uint32_t length{{ extra }})
+{
+	for (uint32_t i = 0; i < length; i++) {
+		out[i] = complex_{{ name }}_{{ S }}(x[i], y[i]{{ extra_arg }});
+	}
+}
+{%- endfor %}
+{%- for name, out_type in [("conjugate", C), ("magnitude", T), ("phase", type.math_type), ("to_polar", P)] %}
+
+void complex_{{ name }}_array_{{ S }}(const {{ C }} *x, {{ out_type }} *out, uint32_t length)
+{
+	for (uint32_t i = 0; i < length; i++) {
+		out[i] = complex_{{ name }}_{{ S }}(x[i]);
+	}
+}
+{%- endfor %}
+
+void complex_from_polar_array_{{ S }}(const {{ P }} *p, {{ C }} *out, uint32_t length)
+{
+	for (uint32_t i = 0; i < length; i++) {
+		out[i] = complex_from_polar_{{ S }}(p[i]);
+	}
 }

@@ -29,16 +29,59 @@ typedef struct {
     {{type}} real;
     {{type}} imag;
 } complex_{{suffix}}_t;
+
+/* magnitude * e^(j phase), with the phase in radians */
+typedef struct {
+    {{type}} magnitude;
+    {{math_type}} phase;
+} polar_{{suffix}}_t;
 ```
+
+`{{math_type}}` is the type itself for `float` and `double`, `float` for `int32` and `double` for `int64`.
 
 ### Functions
 
+`[, frac_bits]` is only on the integer types, see below.
+
 | Function | Description |
 | :--- | :--- |
-| `complex_multiply_{{suffix}}(x, y)` | Multiplies two complex numbers. |
-| `complex_add_{{suffix}}(x, y)` | Adds two complex numbers. |
-| `complex_conjugate_{{suffix}}(x)` | Returns the complex conjugate of `x`. |
-| `complex_magnitude_{{suffix}}(x)` | Returns the magnitude (absolute value) of `x`. |
+| `complex_add_{{suffix}}(x, y)` | `x + y`. |
+| `complex_subtract_{{suffix}}(x, y)` | `x - y`. |
+| `complex_multiply_{{suffix}}(x, y[, frac_bits])` | `x * y`. |
+| `complex_divide_{{suffix}}(x, y[, frac_bits])` | `x / y`. Float and double use Smith's method, so the intermediate values only overflow or underflow when the result does. Dividing by 0 gives NaN. |
+| `complex_conjugate_{{suffix}}(x)` | The complex conjugate of `x`. |
+| `complex_magnitude_{{suffix}}(x)` | The magnitude, `sqrt(real² + imag²)`. |
+| `complex_phase_{{suffix}}(x)` | The phase, `atan2(imag, real)`, in radians from -π to π. Returns `{{math_type}}`. |
+| `complex_to_polar_{{suffix}}(x)` | The magnitude and phase of `x` as a `polar_{{suffix}}_t`. |
+| `complex_from_polar_{{suffix}}(p)` | `p.magnitude * e^(j p.phase)` as a `complex_{{suffix}}_t`. |
+
+Each has an array version, `complex_<name>_array_{{suffix}}()`, which applies it to `length` elements. The output may be the same buffer as an input, so they can work in place:
+
+| Function | Output |
+| :--- | :--- |
+| `complex_add_array_{{suffix}}(x, y, out, length)`, also `subtract` | `complex_{{suffix}}_t *out` |
+| `complex_multiply_array_{{suffix}}(x, y, out, length[, frac_bits])`, also `divide` | `complex_{{suffix}}_t *out` |
+| `complex_conjugate_array_{{suffix}}(x, out, length)` | `complex_{{suffix}}_t *out` |
+| `complex_magnitude_array_{{suffix}}(x, out, length)` | `{{type}} *out` |
+| `complex_phase_array_{{suffix}}(x, out, length)` | `{{math_type}} *out` |
+| `complex_to_polar_array_{{suffix}}(x, out, length)` | `polar_{{suffix}}_t *out` |
+| `complex_from_polar_array_{{suffix}}(p, out, length)` | `complex_{{suffix}}_t *out` |
+
+### Integer complex numbers (fixed point)
+
+The `int32` and `int64` complex numbers are fixed point. Every result is rounded to the nearest value and saturated to the type's range rather than wrapping, e.g. `conjugate` of an imaginary part of `INT32_MIN` gives `INT32_MAX`.
+
+`multiply` and `divide` take `frac_bits`, the number of fractional bits of the format, from 0 to 31 (`int32`) or 63 (`int64`). Both operands and the result are in the same format, e.g. `frac_bits = 31` for Q31, and 0 is plain integer maths. Halves round up, as for the integer filters. For two Q31 values:
+
+```c
+complex_int32_t lo = complex_multiply_int32(x, oscillator, 31);
+```
+
+| Functions | Accuracy |
+| :--- | :--- |
+| `add`, `subtract`, `conjugate`, `multiply`, `magnitude` | Exact, in integer maths only. `int32` products use `int64_t`, and `int64` products use a portable 128 bit product (there is no `__int128` on 32 bit targets). `magnitude` is the exact square root, rounded. |
+| `divide` | Calculated in double and rounded, so exact to 1 LSB for `int32`, and to double precision (about `2^-53` of the result) for `int64`. Dividing by 0 saturates each part towards the sign of that part of `x`, or gives 0 where it is 0. |
+| `phase`, `to_polar`, `from_polar` | Calculated in double. The phase is returned in `{{math_type}}`, so it is float for `int32`, and an `int32` polar round trip is accurate to about `2e-7` of the magnitude. Magnitudes past the type's range (both parts near full scale) saturate, and so don't round trip. |
 
 ---
 
