@@ -14,6 +14,7 @@ In the descriptions below, `{{suffix}}` represents the type suffix (e.g., `float
 - [Averaging](#averaging)
 - [Waveform Generation](#waveform-generation)
 - [Spectrum Generation](#spectrum-generation)
+- [Streaming Generation (NCO / DDS)](#streaming-generation-nco--dds)
 - [FFT](#fft)
 
 ---
@@ -347,6 +348,67 @@ Automated test signal generation based on frequency profiles in `spectrum_gen_{{
 | `generate_spectrum_waveform_{{suffix}}(t, x, data_length, sample_rate, num_steps, profile, base_amplitude, noise_variance, seed)` | Fills `x` with `num_steps` sine waves evenly spaced up to the Nyquist frequency, with amplitudes shaped by `profile` (Flat, Low Decay, High Decay, Bandpass, etc.) and scaled by `base_amplitude`, plus Gaussian noise with variance `noise_variance` (0 for none). Also fills `t` with the sample times. |
 
 The sine waves repeat every `2 * num_steps` samples, so only one period is calculated and then repeated, which keeps generation fast and the phase exact for long waveforms. The noise comes from a built-in pseudo random generator seeded with `seed`, so the same seed always gives the same waveform. Use a different seed for each channel that should have independent noise.
+
+---
+
+## Streaming Generation (NCO / DDS)
+
+Numerically controlled oscillators in `nco_{{suffix}}.h`, for generating a periodic waveform a block or a sample at a time, e.g. to a DAC or in an interrupt. This is direct digital synthesis (DDS): an NCO is the digital part of a DDS, the phase accumulator and the phase to amplitude conversion (the sine table). Writing its samples to a DAC, followed by a reconstruction filter, makes a complete DDS, as in DDS chips such as the AD9833. Each call carries on from where the last one left off, so no time buffer is needed, and the frequency, sweep and phase can be changed while streaming.
+
+The phase is a 64 bit fraction of a period (`2^64` is one period) that wraps around, advanced by a fixed step each sample. It is exact however long the oscillator runs, so unlike the block generator the accuracy doesn't fall as `t` grows, and the frequency resolution is `sample_rate / 2^64` Hz. Frequency changes are phase continuous.
+
+The oscillator is set up from a `wave_properties_{{suffix}}_t`, and generates the same wave as `waveform_add_superposition_{{suffix}}()` with the same properties, from `t = 0`. The supported functions are `FUNCTION_SINE`, `FUNCTION_COS`, `FUNCTION_SQUARE` (with `duty_cycle`), `FUNCTION_TRIANGLE`, `FUNCTION_SAWTOOTH` and `FUNCTION_CHIRP` (with `sweep_rate`). Negative frequencies run the phase backwards. The samples are calculated in `wave_math_{{suffix}}_t`, and for the integer types rounded to the nearest integer and saturated, as for the [integer waveforms](#integer-waveforms).
+
+### Data Structures
+
+* **`nco_{{suffix}}_t`**: The oscillator state, set by the functions below. Its members shouldn't be changed directly.
+* **`NCO_STATUS_E`** (`nco_shared.h`): `NCO_OK`, `NCO_ERR_NULL_POINTER`, `NCO_ERR_INVALID_SAMPLE_RATE` (a sample rate of 0) or `NCO_ERR_INVALID_FUNCTION` (`FUNCTION_IMPULSE` or `FUNCTION_STEP`, which aren't periodic).
+
+### Functions
+
+| Function | Description |
+| :--- | :--- |
+| `nco_init_{{suffix}}(nco, wave_properties, sample_rate)` | Sets up the oscillator, returning an `NCO_STATUS_E`. `delay` is unused, and `sweep_rate` is only used by `FUNCTION_CHIRP`. |
+| `nco_set_frequency_{{suffix}}(nco, frequency)` | Changes the frequency from the next sample, keeping the phase continuous. During a sweep, the sweep carries on from the new frequency. |
+| `nco_set_sweep_{{suffix}}(nco, sweep_rate)` | Sweeps the frequency linearly by `sweep_rate` Hz per second from the next sample, starting from the current frequency, for any of the functions. 0 holds the current frequency. The frequency wraps around at the sample rate, as when sampling a continuous sweep. |
+| `nco_set_phase_{{suffix}}(nco, phase)` | Sets the phase of the next sample, as a fraction of a period. |
+| `nco_sample_{{suffix}}(nco)` | Returns the next sample. |
+| `nco_generate_{{suffix}}(nco, x, length)` | Writes the next `length` samples to `x`. |
+| `nco_add_{{suffix}}(nco, x, length)` | Adds the next `length` samples to `x`, e.g. to build a superposition of several oscillators. The integer types round and saturate each sum. |
+| `nco_sample_complex_{{suffix}}(nco)`, `nco_generate_complex_{{suffix}}(nco, x, length)`, `nco_add_complex_{{suffix}}(nco, x, length)` | Complex versions. The real part is the wave and the imaginary part is the same wave a quarter of a period earlier, so `FUNCTION_COS` gives `amplitude * e^(j 2 pi (frequency * t + phase))`, and a negative frequency `e^(-j ...)` for mixing a signal down. The offset is added to both parts. |
+
+The single sample, block and add functions all advance the oscillator in the same way, so they can be mixed freely and give the same samples. A copy of an `nco_{{suffix}}_t` carries on independently from the same point.
+
+During a sweep, the phase step is kept half a sweep step ahead of the frequency, so the phase at every sample matches the integral of the continuous sweep, `frequency * t + sweep_rate * t^2 / 2`, as for `FUNCTION_CHIRP` in the block generator.
+
+### Generation options (sine)
+
+How sine and cosine are calculated is chosen when the sources are generated (`python scripts/generate_sources.py --help`). The other functions are calculated directly from the phase and are exact to the precision of `wave_math_{{suffix}}_t`.
+
+| Option | Description |
+| :--- | :--- |
+| `--nco-sine table` | *(default)* Linear interpolation of a const quarter wave table, generated by the script in `wave_math_{{suffix}}_t`. The NCO then doesn't include `<math.h>` or need any library functions, so it builds freestanding, e.g. for MCUs. |
+| `--nco-table-bits BITS` | The table has `2^BITS` entries for a quarter wave, from 4 to 16 (default 10). |
+| `--nco-sine libm` | Calls `sin`/`cos` from the maths library for every sample, after reducing the angle to a quarter period, for full precision. |
+| `--nco-int-math fixed` | The `int32` and `int64` NCOs calculate every sample with integer maths only, for MCUs without an FPU. The table is generated in Q30 (`round(sin * 2^30)`, so 1.0 is exact), interpolated with integers, and the amplitude and offset are rounded to integers when they are set, so they stay runtime settings. Each sample is then two integer multiplies, plus adds and shifts. Needs `--nco-sine table`. The default, `float`, uses the waveform maths type, as for the other waveforms. |
+
+The settings (frequency, phase, sweep and duty cycle) are converted to phase steps in double when they are set, so the frequency resolution is the same for every type. On a target with only a single precision FPU, or none with `--nco-int-math fixed`, double is only used then, in `nco_init_{{suffix}}()` and `nco_set_*_{{suffix}}()`, and not per sample. Checked for a Cortex-M0 soft float build, where the sample functions only call the 64 bit integer multiply.
+
+Largest error against the exact wave, as a fraction of the amplitude, measured over every function including sweeps, frequency hops and phase changes (5000 samples each):
+
+| Sine | `float`, `int32` (float maths) | `double`, `int64` (double maths) |
+| :--- | :--- | :--- |
+| Table, 10 bits (4 KiB of float) | 4e-7 | 2.9e-7 |
+| Table, 16 bits (256 KiB of float) | 2.4e-7 (float rounding) | 7.2e-11 |
+| `libm` | 2.4e-7 (float rounding) | 3.8e-12 |
+| `--nco-int-math fixed`, table 10 bits | `int32` 2.9e-7 | `int64` 3.0e-7 |
+| `--nco-int-math fixed`, table 16 bits | `int32` 1.2e-9 (Q30) | `int64` 9.5e-10 (Q30) |
+
+The table's interpolation error is about `0.3 / 4^BITS`, so 10 bits is near float precision. With `--nco-int-math fixed` the shapes are in Q30, which limits them to about `1e-9` (1 LSB of `int32` at an amplitude of `2^30`); the square wave is exact. For double, use `libm` or a larger table. The `libm` double error comes from sweeps: the sweep step is rounded to `2^-64` of a period, and the phase error from this grows with the square of the number of samples. For a sweep that runs for 10 minutes at 48 kHz, it reaches about `1e-5` of a period. Without a sweep, the phase step is rounded to `2^-64` of a period, so the phase drifts by at most `2^-65` of a period per sample, about `1e-10` of a period after a day at 48 kHz.
+
+### Example
+
+`nco/main.c` streams the same waves as the waveform example in blocks of 50 samples, plus a sine that hops frequency half way through and a complex oscillator at -5 Hz. It prints the difference to the block generator, and writes the samples to `nco/results/nco_data.csv`. Running `make` in `nco/` builds and runs it, then `scripts/plot_results.py` compares each wave against `scipy.signal` (all within about `3e-7` in float) and plots them to `results/nco.png`.
 
 ---
 

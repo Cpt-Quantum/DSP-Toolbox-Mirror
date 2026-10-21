@@ -37,6 +37,10 @@ CPP_WRAPPER_FILTER_SRC += $(CPP_WRAPPER_ROOT_DIR)/filter/json_to_filt_int32.c
 CPP_WRAPPER_FILTER_SRC += $(CPP_WRAPPER_ROOT_DIR)/filter/json_to_filt_int64.c
 
 # cpp_wrapper_waveform.h
+CPP_WRAPPER_WAVEFORM_SRC += $(CPP_WRAPPER_ROOT_DIR)/inc/nco_double.c
+CPP_WRAPPER_WAVEFORM_SRC += $(CPP_WRAPPER_ROOT_DIR)/inc/nco_float.c
+CPP_WRAPPER_WAVEFORM_SRC += $(CPP_WRAPPER_ROOT_DIR)/inc/nco_int32.c
+CPP_WRAPPER_WAVEFORM_SRC += $(CPP_WRAPPER_ROOT_DIR)/inc/nco_int64.c
 CPP_WRAPPER_WAVEFORM_SRC += $(CPP_WRAPPER_ROOT_DIR)/inc/spectrum_gen_double.c
 CPP_WRAPPER_WAVEFORM_SRC += $(CPP_WRAPPER_ROOT_DIR)/inc/spectrum_gen_float.c
 CPP_WRAPPER_WAVEFORM_SRC += $(CPP_WRAPPER_ROOT_DIR)/inc/spectrum_gen_int32.c

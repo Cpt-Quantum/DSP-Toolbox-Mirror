@@ -64,6 +64,8 @@ inc_templates = [
     ("waveform_gen.c.j2", "waveform_gen_{type}.c"),
     ("spectrum_gen.h.j2", "spectrum_gen_{type}.h"),
     ("spectrum_gen.c.j2", "spectrum_gen_{type}.c"),
+    ("nco.h.j2", "nco_{type}.h"),
+    ("nco.c.j2", "nco_{type}.c"),
 ]
 filter_templates = [
     ("fir.h.j2", "fir_{type}.h"),
@@ -188,6 +190,70 @@ WAVE_MATH = {
 INT_WAVE_DEFAULT = {"int32": "float", "int64": "double"}
 
 
+# Range and default of the NCO sine table size, as log2 of the quarter wave
+# entries
+NCO_TABLE_BITS_RANGE = (4, 16)
+NCO_TABLE_BITS_DEFAULT = 10
+
+
+def nco_options(
+    wave: dict, sine: str = "table", table_bits: int = None, int_math: str = "float"
+) -> dict:
+    """Per type settings for the NCO templates. sine is "table" for a quarter
+    wave table of 2^table_bits entries with linear interpolation, or "libm"
+    for sin/cos from the maths library. The table is in each type's waveform
+    maths type, or for int_math "fixed" the integer types use a Q30 table and
+    integer maths for every sample"""
+    table_bits = table_bits or NCO_TABLE_BITS_DEFAULT
+    size = 2**table_bits
+    # Largest linear interpolation error of the table, (h / 2)^2 / 2 for a
+    # step h in angle
+    error = (math.pi / 2 / size) ** 2 / 8
+    options = {}
+    for suffix, math_type in wave.items():
+        single = math_type["type"] == "float"
+        fixed = int_math == "fixed" and suffix in INT_WAVE_DEFAULT
+        option = {"sine": sine, "fixed": fixed}
+        if fixed:
+            values = [math.sin(math.pi / 2 * i / size) for i in range(size)] + [1.0]
+            values.append(values[size - 1])
+            # Bits of the position within a table step used for the
+            # interpolation fraction, so the product with a table step fits
+            # int64_t
+            frac_bits = min(32, 62 - table_bits)
+            option.update(
+                table_bits=table_bits,
+                table_size=size,
+                table_entries=[str(math.floor(v * 2**30 + 0.5)) for v in values],
+                table_error=f"{error:.0e}",
+                frac_bits=frac_bits,
+                frac_shift=62 - table_bits - frac_bits,
+                frac_mask=f"UINT64_C(0x{2**frac_bits - 1:X})",
+                frac_half=f"INT64_C({2 ** (frac_bits - 1)})",
+            )
+        elif sine == "table":
+            values = [math.sin(math.pi / 2 * i / size) for i in range(size)] + [1.0]
+            # Padding past the peak, only read with an interpolation fraction
+            # of 0
+            values.append(values[size - 1])
+            if single:
+                values = [to_float32(v) for v in values]
+            # Bits of the position within a table step used for the
+            # interpolation fraction, limited to what fits exactly in the type
+            frac_bits = min(24 if single else 52, 62 - table_bits)
+            option.update(
+                table_bits=table_bits,
+                table_size=size,
+                table_entries=[c_literal(v, single) for v in values],
+                table_error=f"{error:.0e}",
+                frac_shift=62 - table_bits - frac_bits,
+                frac_mask=f"UINT64_C(0x{2**frac_bits - 1:X})",
+                frac_scale=c_literal(2.0**-frac_bits, single),
+            )
+        options[suffix] = option
+    return options
+
+
 def wave_options(int_precision: str = None) -> dict:
     """Per type floating point type that the waveforms are generated in. The
     floating point types use themselves, and the integer types use
@@ -205,6 +271,7 @@ def generate(
     types: list = None,
     fft: dict = None,
     wave: dict = None,
+    nco: dict = None,
 ):
     # Templates are in the 'templates' directory
     env = Environment(loader=FileSystemLoader("templates"))
@@ -234,6 +301,7 @@ def generate(
                     copy=copy,
                     fft=(fft or {}).get(config["suffix"]),
                     wave=(wave or {}).get(config["suffix"]),
+                    nco=(nco or {}).get(config["suffix"]),
                 )
                 with open(output_path, "w") as f:
                     f.write(content)
@@ -285,6 +353,40 @@ if __name__ == "__main__":
         "int64). double keeps int32 waveforms exact to the LSB at full scale, "
         "float is faster on targets with only a single precision FPU",
     )
+    nco_group = parser.add_argument_group(
+        "NCO",
+        "The numerically controlled oscillators (nco_*) for streaming "
+        "waveform generation",
+    )
+    nco_group.add_argument(
+        "--nco-sine",
+        choices=["table", "libm"],
+        default="table",
+        help="how the NCO calculates sine and cosine (default: %(default)s). "
+        "table interpolates a const quarter wave table, without the maths "
+        "library, e.g. for MCUs. libm calls sin/cos for every sample, for "
+        "full precision",
+    )
+    nco_group.add_argument(
+        "--nco-table-bits",
+        type=int,
+        metavar="BITS",
+        help="size of the NCO sine table, 2^BITS entries for a quarter wave "
+        f"(default: {NCO_TABLE_BITS_DEFAULT}, from {NCO_TABLE_BITS_RANGE[0]} "
+        f"to {NCO_TABLE_BITS_RANGE[1]}). The interpolation error is about "
+        "0.3 / 4^BITS of the amplitude, so 10 is about 3e-7, near float "
+        "precision, and 16 about 7e-11",
+    )
+    nco_group.add_argument(
+        "--nco-int-math",
+        choices=["float", "fixed"],
+        default="float",
+        help="how the int32/int64 NCOs calculate each sample (default: "
+        "%(default)s). float uses the waveform maths type, as for the other "
+        "waveforms (see --int-waveform-precision). fixed uses integer maths "
+        "only, from a Q30 sine table, for MCUs without an FPU. Needs --nco-sine "
+        "table",
+    )
     fft_group = parser.add_argument_group("FFT")
     fft_group.add_argument(
         "--fft-twiddle-precision",
@@ -321,6 +423,14 @@ if __name__ == "__main__":
         parser.error("--fft-twiddle-table can be at most 2^31")
     if args.fft_table_only and table_size is None:
         parser.error("--fft-table-only needs --fft-twiddle-table")
+    if args.nco_int_math == "fixed" and args.nco_sine != "table":
+        parser.error("--nco-int-math fixed needs --nco-sine table")
+    if args.nco_table_bits is not None:
+        if args.nco_sine != "table":
+            parser.error("--nco-table-bits needs --nco-sine table")
+        low, high = NCO_TABLE_BITS_RANGE
+        if not low <= args.nco_table_bits <= high:
+            parser.error(f"--nco-table-bits must be from {low} to {high}")
 
     copy = copy_options(args)
     print(
@@ -334,7 +444,15 @@ if __name__ == "__main__":
             wave["int32"]["type"], wave["int64"]["type"]
         )
     )
-    generate("inc", inc_templates, wave=wave)
+    nco = nco_options(wave, args.nco_sine, args.nco_table_bits, args.nco_int_math)
+    if args.nco_sine == "table":
+        print(
+            "NCO sine: {} entry quarter wave table".format(nco["float"]["table_size"])
+        )
+    else:
+        print("NCO sine: maths library")
+    print(f"Integer NCO samples: {args.nco_int_math}")
+    generate("inc", inc_templates, wave=wave, nco=nco)
     generate("filter", filter_templates, copy)
     generate("average", avg_templates)
     if args.fft_table_only:

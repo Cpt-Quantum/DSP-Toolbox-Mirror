@@ -26,3 +26,6 @@ fft/fft_*.h
 inc/waveform_gen_*.c
 inc/waveform_gen_*.h
 !inc/waveform_gen_shared.h
+inc/nco_*.c
+inc/nco_*.h
+!inc/nco_shared.h

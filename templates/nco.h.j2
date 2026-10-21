@@ -1,0 +1,108 @@
+#ifndef NCO_{{ type.suffix | upper }}_H
+#define NCO_{{ type.suffix | upper }}_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "complex_{{ type.suffix }}.h"
+#include "nco_shared.h"
+#include "waveform_gen_{{ type.suffix }}.h"
+#include <stdbool.h>
+#include <stdint.h>
+
+/* Numerically controlled oscillator, for generating a periodic waveform in
+ * blocks or a sample at a time, carrying on from where the last call left
+ * off. The phase is a 64 bit fraction of a period that wraps around, so it
+ * stays exact however long the stream runs, and frequency changes are phase
+ * continuous.
+ *
+{%- if nco.sine == "table" %}
+ * Sine and cosine come from a {{ nco.table_size }} entry quarter wave table with linear
+ * interpolation, accurate to about {{ nco.table_error }} of the amplitude
+{%- else %}
+ * Sine and cosine are calculated with sin{{ wave.math_suffix }}/cos{{ wave.math_suffix }} from the maths library
+{%- endif %}. This is chosen
+ * when the sources are generated, see python scripts/generate_sources.py --help.
+{%- if nco.fixed %}
+ * The samples are calculated with integer maths only, from a Q30 table, with
+ * the amplitude and offset rounded to integers when they are set, then
+ * rounded to the nearest integer and saturated. Only the nco_init_{{ type.suffix }}() and
+ * nco_set_*_{{ type.suffix }}() functions use floating point (double).
+{%- else %}
+ * The samples are calculated in wave_math_{{ type.suffix }}_t
+{%- if type.fixed_point %} then rounded to the nearest
+ * integer and saturated
+{%- endif %}.
+{%- endif %}
+ *
+ * The members are set by the functions below, and shouldn't be changed
+ * directly */
+typedef struct {
+	/* Position in the period, 2^64 is one period */
+	uint64_t phase;
+	/* Phase step to the next sample, frequency / sample_rate periods */
+	uint64_t step;
+	/* Change in step each sample for a frequency sweep, and half of it */
+	uint64_t sweep_step;
+	uint64_t sweep_half;
+	/* FUNCTION_SQUARE is high while phase < duty_threshold, or always when
+	 * duty_always_high is set */
+	uint64_t duty_threshold;
+	bool duty_always_high;
+	WAVEFORM_FUNC_E function_type;
+{%- if nco.fixed %}
+	/* Rounded to integers{{ ", and limited to +/- 2^32" if type.name == "int32_t" else "" }} */
+	int64_t amplitude;
+	int64_t offset;
+{%- else %}
+	wave_math_{{ type.suffix }}_t amplitude;
+	wave_math_{{ type.suffix }}_t offset;
+{%- endif %}
+	uint32_t sample_rate;
+} nco_{{ type.suffix }}_t;
+
+/* Sets up nco to generate the wave described by wave_properties, the same as
+ * waveform_add_superposition_{{ type.suffix }}() with the same properties, from t = 0.
+ * FUNCTION_SINE, FUNCTION_COS, FUNCTION_SQUARE, FUNCTION_TRIANGLE,
+ * FUNCTION_SAWTOOTH and FUNCTION_CHIRP are supported, delay is unused, and
+ * sweep_rate is only used by FUNCTION_CHIRP (see nco_set_sweep_{{ type.suffix }}() to sweep
+ * the others). Negative frequencies run the phase backwards. Returns
+ * NCO_ERR_NULL_POINTER, NCO_ERR_INVALID_SAMPLE_RATE for a sample_rate of 0,
+ * NCO_ERR_INVALID_FUNCTION for FUNCTION_IMPULSE or FUNCTION_STEP, or NCO_OK */
+NCO_STATUS_E nco_init_{{ type.suffix }}(nco_{{ type.suffix }}_t *nco, wave_properties_{{ type.suffix }}_t wave_properties, uint32_t sample_rate);
+
+/* Changes the frequency from the next sample, keeping the phase continuous.
+ * During a sweep, the sweep carries on from the new frequency */
+void nco_set_frequency_{{ type.suffix }}(nco_{{ type.suffix }}_t *nco, wave_math_{{ type.suffix }}_t frequency);
+/* Sweeps the frequency linearly by sweep_rate Hz per second from the next
+ * sample, from the current frequency, for any of the functions. 0 stops the
+ * sweep at the current frequency. The frequency wraps around at the sample
+ * rate, as it would when sampling a continuous sweep */
+void nco_set_sweep_{{ type.suffix }}(nco_{{ type.suffix }}_t *nco, wave_math_{{ type.suffix }}_t sweep_rate);
+/* Sets the phase of the next sample, as a fraction of a period */
+void nco_set_phase_{{ type.suffix }}(nco_{{ type.suffix }}_t *nco, wave_math_{{ type.suffix }}_t phase);
+
+/* Returns the next sample */
+{{ type.name }} nco_sample_{{ type.suffix }}(nco_{{ type.suffix }}_t *nco);
+/* Writes the next length samples to x */
+void nco_generate_{{ type.suffix }}(nco_{{ type.suffix }}_t *nco, {{ type.name }} *x, uint32_t length);
+/* Adds the next length samples to x, e.g. to build up a superposition of
+ * several oscillators
+{%- if type.fixed_point %}, rounding and saturating each sum
+{%- endif %} */
+void nco_add_{{ type.suffix }}(nco_{{ type.suffix }}_t *nco, {{ type.name }} *x, uint32_t length);
+
+/* Complex versions. The real part is the wave, and the imaginary part is the
+ * same wave a quarter of a period earlier, so FUNCTION_COS gives
+ * amplitude * e^(j 2 pi (frequency * t + phase)), and a negative frequency
+ * gives e^(-j ...), e.g. for mixing down. The offset is added to both parts */
+complex_{{ type.suffix }}_t nco_sample_complex_{{ type.suffix }}(nco_{{ type.suffix }}_t *nco);
+void nco_generate_complex_{{ type.suffix }}(nco_{{ type.suffix }}_t *nco, complex_{{ type.suffix }}_t *x, uint32_t length);
+void nco_add_complex_{{ type.suffix }}(nco_{{ type.suffix }}_t *nco, complex_{{ type.suffix }}_t *x, uint32_t length);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* NCO_{{ type.suffix | upper }}_H */

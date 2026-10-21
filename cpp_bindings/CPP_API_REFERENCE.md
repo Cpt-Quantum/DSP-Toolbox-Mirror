@@ -15,6 +15,7 @@ All wrapper classes are templates that support the following numerical types (`n
 
 * [Headers and Sources](#headers-and-sources)
 * [Waveform Generation (`waveform_x`)](#waveform-generation-waveform_x)
+* [Streaming Generation, NCO / DDS (`nco`)](#streaming-generation-nco--dds-nco)
 * [FIR Filters (`fir`)](#fir-filters-fir)
 * [IIR Filters (Direct Form) (`iir_ba`)](#iir-filters-direct-form-iir_ba)
 * [IIR Filters (SOS/Biquad) (`iir_sos`)](#iir-filters-sosbiquad-iir_sos)
@@ -34,7 +35,7 @@ Each module has its own header, and `cpp_wrapper.h` includes all of them. Includ
 | `cpp_wrapper_average.h` | `average`, `power_average`, `moving_avg` | `CPP_WRAPPER_AVERAGE_SRC` |
 | `cpp_wrapper_complex.h` | `complex_t`, `polar_t`, the `complex_*` functions and operators | `CPP_WRAPPER_COMPLEX_SRC` |
 | `cpp_wrapper_filter.h` | `json_filter_parse`, `fir`, `iir_ba`, `iir_sos` | `CPP_WRAPPER_FILTER_SRC` |
-| `cpp_wrapper_waveform.h` | `waveform_t`, `waveform_x` | `CPP_WRAPPER_WAVEFORM_SRC` |
+| `cpp_wrapper_waveform.h` | `waveform_t`, `waveform_x`, `nco` | `CPP_WRAPPER_WAVEFORM_SRC` |
 | `cpp_wrapper.h` | All of the above | `CPP_WRAPPER_SRC` |
 
 For example, a project using only the filters would set `CPP_WRAPPER_ROOT_DIR`, `include cpp_wrapper.mk`, then compile with `$(CPP_WRAPPER_FILTER_SRC)` and link with `$(CPP_WRAPPER_LDFLAGS)`. `cpp_data_io.h` uses `cpp_wrapper_waveform.h`, so it also needs `CPP_WRAPPER_WAVEFORM_SRC`.
@@ -62,6 +63,31 @@ The times and wave properties are in `math_t`, the floating point type the wavef
 * `void scale(num_t factor)`: Multiplies all values in the waveform by `factor`.
 * `void divide(num_t factor)`: Divides all values in the waveform by `factor`.
 * `void mask(uint32_t bit_width)`: Saturates values to the range of a signed integer of `bit_width`.
+
+---
+
+## Streaming Generation, NCO / DDS (`nco`)
+
+Header: `cpp_wrapper_waveform.h`
+
+A numerically controlled oscillator, the digital part of a direct digital synthesiser (DDS), generating a periodic waveform a block or a sample at a time and carrying on from where the last call left off. See [Streaming Generation (NCO / DDS)](../API_REFERENCE.md#streaming-generation-nco--dds) in the C API reference for the supported functions, accuracy and generation options. `math_t` is the same as for `waveform_x`, and `complex_t` is the C complex struct for `num_t` (e.g. `complex_float_t`).
+
+### Constructors
+
+* `nco(props_t props, uint32_t sample_rate)`: From a `wave_properties` struct, generating the same wave as `waveform_x` with the same properties.
+* `nco(math_t amplitude, math_t offset, math_t frequency, math_t phase, WAVEFORM_FUNC_E function_type, uint32_t sample_rate, math_t duty_cycle = 0, math_t sweep_rate = 0)`: The same, from the individual properties.
+
+Both throw `std::invalid_argument` for a sample rate of 0, or for `FUNCTION_IMPULSE` or `FUNCTION_STEP`, which aren't periodic. A copy of an `nco` carries on independently from the same point.
+
+### Methods
+
+* `void set_frequency(math_t frequency)`, `void set_sweep(math_t sweep_rate)`, `void set_phase(math_t phase)`: Change the oscillator from the next sample, see `nco_set_*()` in the C API reference. Frequency changes are phase continuous.
+* `num_t sample()`, `complex_t sample_complex()`: The next sample.
+* `void generate(std::vector<num_t> &x)`, `void generate_complex(std::vector<complex_t> &x)`: Fill `x` with the next `x.size()` samples.
+* `void add(std::vector<num_t> &x)`, `void add_complex(std::vector<complex_t> &x)`: Add the next `x.size()` samples to `x`.
+* `generate`, `generate_complex`, `add` and `add_complex` also have pointer overloads taking `(num_t *x, uint32_t length)`, for working at an offset within a larger buffer.
+
+The complex output is the wave plus `j` times the same wave a quarter of a period earlier, so `FUNCTION_COS` gives `amplitude * e^(j 2 pi (frequency * t + phase))`.
 
 ---
 
