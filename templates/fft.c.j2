@@ -1,0 +1,171 @@
+#include <math.h>
+#include <stdbool.h>
+#include <stdint.h>
+
+#include "fft_{{ type.suffix }}.h"
+
+#define TWO_PI 6.28318530717958647692
+
+{%- if fft.twiddle.math_type != type.name %}
+/* Twiddle factor e^(-j 2 pi k / n), calculated in {{ fft.twiddle.math_type }} and rounded once
+ * to {{ type.name }}. The precision is chosen when the sources are generated */
+{%- else %}
+/* Twiddle factor e^(-j 2 pi k / n), calculated in {{ fft.twiddle.math_type }}. The precision
+ * is chosen when the sources are generated */
+{%- endif %}
+static complex_{{ type.suffix }}_t twiddle_{{ type.suffix }}(uint32_t k, uint32_t n) {
+	const {{ fft.twiddle.math_type }} angle = ({{ fft.twiddle.math_type }})TWO_PI * ({{ fft.twiddle.math_type }})k / ({{ fft.twiddle.math_type }})n;
+{%- set cast = "(" ~ type.name ~ ")" if fft.twiddle.math_type != type.name else "" %}
+	complex_{{ type.suffix }}_t w = {{ "{" }}{{ cast }}cos{{ fft.twiddle.math_suffix }}(angle), {{ cast }}-sin{{ fft.twiddle.math_suffix }}(angle)};
+	return w;
+}
+
+/* Reorders x into bit reversed index order. j holds the bit reversal of i,
+ * and is advanced by clearing its set bits from the top down until reaching a
+ * clear bit, which is then set */
+static void bit_reverse_{{ type.suffix }}(complex_{{ type.suffix }}_t *x, uint32_t n) {
+	uint32_t j = 0;
+	for (uint32_t i = 0; i < n; i++) {
+		if (i < j) {
+			complex_{{ type.suffix }}_t tmp = x[i];
+			x[i] = x[j];
+			x[j] = tmp;
+		}
+
+		uint32_t bit = n >> 1;
+		while (j & bit) {
+			j ^= bit;
+			bit >>= 1;
+		}
+		j |= bit;
+	}
+}
+
+/* Radix-2 butterfly stages over bit reversed input, combining pairs of half
+ * point transforms into transforms of twice the length. The twiddle factors
+ * are conjugated for the inverse transform. The loop is driven by half < n
+ * rather than 2 * half <= n so it can't overflow for n = 2^31 */
+static void radix2_kernel_{{ type.suffix }}(complex_{{ type.suffix }}_t *x, const complex_{{ type.suffix }}_t *twiddle, uint32_t n,
+								bool conjugate) {
+	for (uint32_t half = 1; half < n; half <<= 1) {
+		const uint32_t len = 2 * half;
+		const uint32_t step = (n / 2) / half;
+
+		/* Each twiddle factor is loaded once per stage */
+		for (uint32_t k = 0; k < half; k++) {
+			const {{ type.name }} w_real = twiddle[k * step].real;
+			const {{ type.name }} w_imag = conjugate ? -twiddle[k * step].imag : twiddle[k * step].imag;
+
+			for (uint32_t a = k; a < n; a += len) {
+				const uint32_t b = a + half;
+				const {{ type.name }} t_real = x[b].real * w_real - x[b].imag * w_imag;
+				const {{ type.name }} t_imag = x[b].real * w_imag + x[b].imag * w_real;
+
+				x[b].real = x[a].real - t_real;
+				x[b].imag = x[a].imag - t_imag;
+				x[a].real += t_real;
+				x[a].imag += t_imag;
+			}
+		}
+	}
+}
+
+size_t fft_plan_size_{{ type.suffix }}(uint32_t n) {
+	if (n < 2 || (n & (n - 1)) != 0) {
+		return 0;
+	}
+#if SIZE_MAX <= UINT32_MAX
+	/* Only possible on 32 bit targets, for large n */
+	if (n / 2 > SIZE_MAX / sizeof(complex_{{ type.suffix }}_t)) {
+		return 0;
+	}
+#endif
+	return FFT_PLAN_SIZE_{{ type.suffix | upper }}((size_t)n);
+}
+
+FFT_STATUS_E fft_plan_init_{{ type.suffix }}(struct fft_plan_{{ type.suffix }}_t *plan, uint32_t n, void *work,
+								 size_t work_bytes) {
+	if (plan == NULL || work == NULL) {
+		return FFT_ERR_NULL_POINTER;
+	}
+
+	const size_t required = fft_plan_size_{{ type.suffix }}(n);
+	if (required == 0) {
+		return FFT_ERR_INVALID_SIZE;
+	}
+	if (work_bytes < required) {
+		return FFT_ERR_WORK_TOO_SMALL;
+	}
+	if ((uintptr_t)work % _Alignof(complex_{{ type.suffix }}_t) != 0) {
+		return FFT_ERR_WORK_MISALIGNED;
+	}
+
+	/* Only k <= n / 8 is calculated, the rest are exact reflections of the
+	 * already rounded values so symmetric twiddles match bit for bit. Filling
+	 * in increasing k means each reflection reads a value already written */
+	complex_{{ type.suffix }}_t *twiddle = work;
+	const uint32_t half = n / 2;
+	const uint32_t quarter = n / 4;
+	for (uint32_t k = 0; k < half; k++) {
+		if (k <= n / 8) {
+			twiddle[k] = twiddle_{{ type.suffix }}(k, n);
+		} else if (k <= quarter) {
+			twiddle[k].real = -twiddle[quarter - k].imag;
+			twiddle[k].imag = -twiddle[quarter - k].real;
+		} else {
+			twiddle[k].real = -twiddle[half - k].real;
+			twiddle[k].imag = twiddle[half - k].imag;
+		}
+	}
+
+	uint32_t log2n = 0;
+	while ((1u << log2n) < n) {
+		log2n++;
+	}
+
+	plan->n = n;
+	plan->log2n = log2n;
+	plan->twiddle = twiddle;
+
+	return FFT_OK;
+}
+
+void fft_{{ type.suffix }}(const struct fft_plan_{{ type.suffix }}_t *plan, complex_{{ type.suffix }}_t *x) {
+	bit_reverse_{{ type.suffix }}(x, plan->n);
+	radix2_kernel_{{ type.suffix }}(x, plan->twiddle, plan->n, false);
+}
+
+void ifft_{{ type.suffix }}(const struct fft_plan_{{ type.suffix }}_t *plan, complex_{{ type.suffix }}_t *x) {
+	bit_reverse_{{ type.suffix }}(x, plan->n);
+	radix2_kernel_{{ type.suffix }}(x, plan->twiddle, plan->n, true);
+
+	/* Exact, since n is a power of two */
+	const {{ type.name }} scale = 1.0{{ type.literal_suffix }} / ({{ type.name }})plan->n;
+	for (uint32_t i = 0; i < plan->n; i++) {
+		x[i].real *= scale;
+		x[i].imag *= scale;
+	}
+}
+
+void dft_{{ type.suffix }}(const complex_{{ type.suffix }}_t *data_in, complex_{{ type.suffix }}_t *data_out, uint32_t n) {
+	for (uint32_t i = 0; i < n; i++) {
+		{{ type.name }} real = 0;
+		{{ type.name }} imag = 0;
+
+		for (uint32_t j = 0; j < n; j++) {
+			/* Reduce i * j to one period first, otherwise the angle loses
+			 * precision for large transforms */
+			const uint32_t k = (uint32_t)(((uint64_t)i * j) % n);
+			const {{ type.name }} exponent = (({{ type.name }})TWO_PI / ({{ type.name }})n) * ({{ type.name }})k;
+			/* Calculate the cos (c) and sin (s) parts ahead of use */
+			const {{ type.name }} c = cos{{ type.math_suffix }}(exponent);
+			const {{ type.name }} s = sin{{ type.math_suffix }}(exponent);
+
+			real += data_in[j].real * c + data_in[j].imag * s;
+			imag += data_in[j].imag * c - data_in[j].real * s;
+		}
+
+		data_out[i].real = real;
+		data_out[i].imag = imag;
+	}
+}

@@ -1,0 +1,87 @@
+#ifndef FFT_{{ type.suffix | upper }}_H
+#define FFT_{{ type.suffix | upper }}_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stddef.h>
+#include <stdint.h>
+
+#include "../inc/complex_{{ type.suffix }}.h"
+#include "fft_shared.h"
+
+/* Conventions for all of the transforms below:
+ * - Forward: X[k] = sum over n of x[n] * e^(-j 2 pi n k / N), unscaled
+ * - Inverse: x[n] = (1 / N) * sum over k of X[k] * e^(+j 2 pi n k / N), so
+ *   ifft_{{ type.suffix }}(fft_{{ type.suffix }}(x)) returns x up to rounding
+ * - complex_{{ type.suffix }}_t is the real part followed by the imaginary part, so it is
+ *   layout compatible with {{ type.name }}[2] and C99 {{ type.name }} _Complex, and arrays of it
+ *   are interleaved real, imag, real, imag
+ * - Output is in natural order, in the same buffer as the input. Bin k for
+ *   k < N / 2 is a positive frequency and bin N - k is the matching negative
+ *   frequency
+ *
+ * The library never allocates. The caller provides the workspace that holds
+ * the twiddle table, which can be a static array, a stack buffer or from
+ * malloc. Declaring it as an array of complex_{{ type.suffix }}_t gives the correct
+ * alignment:
+ *
+ *	static complex_{{ type.suffix }}_t twiddle[1024 / 2];
+ *	static struct fft_plan_{{ type.suffix }}_t plan;
+ *	fft_plan_init_{{ type.suffix }}(&plan, 1024, twiddle, sizeof twiddle);
+ *	fft_{{ type.suffix }}(&plan, x);
+ *
+ * The workspace must outlive the plan and must not be written while the plan
+ * is in use. A plan is read only after initialisation, so one plan can be
+ * shared by several threads transforming different buffers. Two threads must
+ * not transform the same buffer.
+ *
+{%- if fft.twiddle.math_type != type.name %}
+ * The twiddle factors are calculated in {{ fft.twiddle.math_type }} during plan initialisation,
+ * the only place {{ fft.twiddle.math_type }} is used. The precision is chosen when the
+ * sources are generated, see python scripts/generate_sources.py --help */
+{%- else %}
+ * The twiddle factors are calculated in {{ fft.twiddle.math_type }} during plan initialisation.
+ * The precision is chosen when the sources are generated, see
+ * python scripts/generate_sources.py --help */
+{%- endif %}
+
+struct fft_plan_{{ type.suffix }}_t {
+	uint32_t n;
+	uint32_t log2n;
+	/* n / 2 twiddle factors, stored in the caller's workspace */
+	const complex_{{ type.suffix }}_t *twiddle;
+};
+
+/* Workspace bytes needed for an n point plan, for sizing static buffers. Does
+ * not validate n, use fft_plan_size_{{ type.suffix }}() for that */
+#define FFT_PLAN_SIZE_{{ type.suffix | upper }}(n) (((n) / 2) * sizeof(complex_{{ type.suffix }}_t))
+
+/* Returns the workspace bytes needed for an n point plan, or 0 if n is not a
+ * power of two of at least 2 */
+size_t fft_plan_size_{{ type.suffix }}(uint32_t n);
+
+/* Fills the twiddle table into work and initialises plan for n point
+ * transforms. Errors are checked in the order they are listed in
+ * FFT_STATUS_E, and plan is left unmodified on any error */
+FFT_STATUS_E fft_plan_init_{{ type.suffix }}(struct fft_plan_{{ type.suffix }}_t *plan, uint32_t n, void *work,
+								 size_t work_bytes);
+
+/* In place forward FFT of plan->n values, unscaled. plan must have been
+ * initialised successfully, no further validation is done */
+void fft_{{ type.suffix }}(const struct fft_plan_{{ type.suffix }}_t *plan, complex_{{ type.suffix }}_t *x);
+
+/* In place inverse FFT of plan->n values, scaled by 1 / n. Same requirements
+ * as fft_{{ type.suffix }}() */
+void ifft_{{ type.suffix }}(const struct fft_plan_{{ type.suffix }}_t *plan, complex_{{ type.suffix }}_t *x);
+
+/* Direct O(N^2) DFT for any n, as a slow reference. data_in and data_out must
+ * not overlap */
+void dft_{{ type.suffix }}(const complex_{{ type.suffix }}_t *data_in, complex_{{ type.suffix }}_t *data_out, uint32_t n);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // FFT_{{ type.suffix | upper }}_H

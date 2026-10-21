@@ -55,6 +55,12 @@ filter_templates = [
     ("json_to_filt.h.j2", "json_to_filt_{type}.h"),
     ("json_to_filt.c.j2", "json_to_filt_{type}.c"),
 ]
+fft_templates = [
+    ("fft.h.j2", "fft_{type}.h"),
+    ("fft.c.j2", "fft_{type}.c"),
+]
+# The FFT is only generated for the floating point types
+FFT_TYPES = ["float", "double"]
 
 
 # Functions used by the filters to copy into, and shift, their history buffers.
@@ -78,7 +84,29 @@ def copy_options(args) -> dict:
     return {"memcpy": memcpy, "memmove": memmove, "includes": includes}
 
 
-def generate(output_dir: str, templates: list, copy: dict = STDLIB_COPY):
+# Math used to calculate the FFT twiddle factors at plan initialisation
+TWIDDLE_MATH = {
+    "double": {"math_type": "double", "math_suffix": ""},
+    "float": {"math_type": "float", "math_suffix": "f"},
+}
+
+
+def fft_options(twiddle_precision: str = "double") -> dict:
+    """Per type settings for the FFT templates. twiddle_precision only applies
+    to the float FFT, the double FFT always calculates its twiddles in double"""
+    return {
+        "float": {"twiddle": TWIDDLE_MATH[twiddle_precision]},
+        "double": {"twiddle": TWIDDLE_MATH["double"]},
+    }
+
+
+def generate(
+    output_dir: str,
+    templates: list,
+    copy: dict = STDLIB_COPY,
+    types: list = None,
+    fft: dict = None,
+):
     # Templates are in the 'templates' directory
     env = Environment(loader=FileSystemLoader("templates"))
 
@@ -86,6 +114,8 @@ def generate(output_dir: str, templates: list, copy: dict = STDLIB_COPY):
     # or handle paths relative to this script
 
     for config in types_config:
+        if types is not None and config["suffix"] not in types:
+            continue
         for template_name, output_pattern in templates:
             try:
                 template = env.get_template(template_name)
@@ -93,7 +123,11 @@ def generate(output_dir: str, templates: list, copy: dict = STDLIB_COPY):
                 output_path = os.path.join(output_dir, output_name)
 
                 print(f"Generating {output_path}...")
-                content = template.render(type=config, copy=copy)
+                content = template.render(
+                    type=config,
+                    copy=copy,
+                    fft=(fft or {}).get(config["suffix"]),
+                )
                 with open(output_path, "w") as f:
                     f.write(content)
             except Exception as e:
@@ -134,6 +168,16 @@ if __name__ == "__main__":
         metavar="HEADER",
         help="header declaring the --memcpy/--memmove functions",
     )
+    fft_group = parser.add_argument_group("FFT")
+    fft_group.add_argument(
+        "--fft-twiddle-precision",
+        choices=["double", "float"],
+        default="double",
+        help="precision used to calculate the float FFT's twiddle factors at "
+        "plan initialisation (default: %(default)s). float avoids double "
+        "arithmetic entirely, for targets without a double FPU, at a small "
+        "cost in accuracy. The double FFT always uses double",
+    )
     args = parser.parse_args()
     if args.copy_header and not (args.memcpy or args.memmove):
         parser.error("--copy-header needs --memcpy and/or --memmove")
@@ -146,3 +190,10 @@ if __name__ == "__main__":
     )
     generate("inc", inc_templates)
     generate("filter", filter_templates, copy)
+    print(f"Float FFT twiddles: {args.fft_twiddle_precision}")
+    generate(
+        "fft",
+        fft_templates,
+        types=FFT_TYPES,
+        fft=fft_options(args.fft_twiddle_precision),
+    )

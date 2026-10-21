@@ -13,6 +13,7 @@ In the descriptions below, `{{suffix}}` represents the type suffix (e.g., `float
 - [JSON Initialization](#json-initialization)
 - [Waveform Generation](#waveform-generation)
 - [Spectrum Generation](#spectrum-generation)
+- [FFT](#fft)
 
 ---
 
@@ -191,3 +192,75 @@ Automated test signal generation based on frequency profiles in `spectrum_gen_{{
 | `generate_spectrum_waveform_{{suffix}}(t, x, data_length, sample_rate, num_steps, profile, base_amplitude, noise_variance, seed)` | Fills `x` with `num_steps` sine waves evenly spaced up to the Nyquist frequency, with amplitudes shaped by `profile` (Flat, Low Decay, High Decay, Bandpass, etc.) and scaled by `base_amplitude`, plus Gaussian noise with variance `noise_variance` (0 for none). Also fills `t` with the sample times. |
 
 The sine waves repeat every `2 * num_steps` samples, so only one period is calculated and then repeated, which keeps generation fast and the phase exact for long waveforms. The noise comes from a built-in pseudo random generator seeded with `seed`, so the same seed always gives the same waveform. Use a different seed for each channel that should have independent noise.
+
+---
+
+## FFT
+
+In place radix-2 Fourier transforms in `fft/fft_{{suffix}}.h`, generated for
+`float` and `double` only. The status enum is shared between the types in
+`fft/fft_shared.h`.
+
+The forward transform uses a negative exponent and is unscaled. The inverse
+uses a positive exponent and is scaled by `1 / n`, matching `numpy.fft.fft` and
+`numpy.fft.ifft`. Output is in natural order, with bin `n - k` the negative
+frequency matching bin `k`.
+
+### Generation options (twiddle precision)
+
+The twiddle factors are calculated once, during plan initialisation. The
+transforms themselves only use the FFT's own type.
+
+| Option | Description |
+| :--- | :--- |
+| `--fft-twiddle-precision double` | *(default)* The float FFT calculates its twiddles in double and rounds them once to float. Plan initialisation is then the only place double is used. |
+| `--fft-twiddle-precision float` | The float FFT calculates its twiddles in float, so no double arithmetic is used anywhere. For targets without a double FPU, where double is emulated in software. Accuracy is almost the same (relative RMS error 1.44e-7 against 1.43e-7 at N = 16384). |
+
+The double FFT always calculates its twiddles in double.
+
+### Data Structures
+
+```c
+typedef enum {
+    FFT_OK,
+    FFT_ERR_NULL_POINTER,
+    FFT_ERR_INVALID_SIZE,
+    FFT_ERR_WORK_TOO_SMALL,
+    FFT_ERR_WORK_MISALIGNED,
+} FFT_STATUS_E;
+
+struct fft_plan_{{suffix}}_t {
+    uint32_t n;
+    uint32_t log2n;
+    const complex_{{suffix}}_t *twiddle;
+};
+```
+
+### Functions
+
+| Function | Description |
+| :--- | :--- |
+| `fft_plan_size_{{suffix}}(n)` | Workspace bytes needed for an `n` point plan, or 0 if `n` is not a power of two of at least 2. |
+| `FFT_PLAN_SIZE_{{SUFFIX}}(n)` | Compile time version of the above for sizing static buffers. Does not validate `n`. |
+| `fft_plan_init_{{suffix}}(plan, n, work, work_bytes)` | Fills the twiddle table into the caller's `work` buffer and initialises `plan`. Returns an `FFT_STATUS_E`, and leaves `plan` unmodified on error. |
+| `fft_{{suffix}}(plan, x)` | In place forward FFT of `plan->n` values. |
+| `ifft_{{suffix}}(plan, x)` | In place inverse FFT of `plan->n` values, scaled by `1 / n`. |
+| `dft_{{suffix}}(data_in, data_out, n)` | Direct O(N²) DFT for any `n`, as a slow reference. The buffers must not overlap. |
+
+Nothing is allocated. The workspace holds `n / 2` twiddle factors and must
+outlive the plan. A plan is read only after initialisation, so it can be shared
+between threads transforming different buffers.
+
+```c
+static complex_float_t twiddle[1024 / 2];
+static struct fft_plan_float_t plan;
+fft_plan_init_float(&plan, 1024, twiddle, sizeof twiddle);
+fft_float(&plan, x);
+```
+
+### Example
+
+`fft/main.c` transforms a pair of test tones with the float FFT and the inverse
+FFT, writing the results to CSV files in `fft/results/`. Running `make` in
+`fft/` builds and runs it, then `scripts/plot_results.py` compares the results
+against numpy and plots them to `results/fft.png`.

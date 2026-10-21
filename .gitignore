@@ -18,6 +18,9 @@ inc/constants_*.h
 inc/spectrum_gen_*.c
 inc/spectrum_gen_*.h
 !inc/spectrum_gen_shared.h
+fft/fft_*.c
+fft/fft_*.h
+!fft/fft_shared.h
 inc/waveform_gen_*.c
 inc/waveform_gen_*.h
 !inc/waveform_gen_shared.h
