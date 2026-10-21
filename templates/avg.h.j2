@@ -1,0 +1,57 @@
+#ifndef AVG_{{ type.suffix | upper }}_H
+#define AVG_{{ type.suffix | upper }}_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stdint.h>
+
+{% if type.fixed_point -%}
+/* Sums are accumulated in {{ type.acc_type }}, and the averages are rounded to the nearest
+ * value (halves away from zero). The sums must not overflow {{ type.acc_type }}, so for
+ * power_average_{{ type.suffix }}() the number of samples times the largest squared
+ * sample must be below 2^63, e.g. up to 2^32 samples of 16 bit data */
+
+{% endif -%}
+/* Moving average over a window of the most recent samples. The caller
+ * provides the window buffer, of length samples, which must outlive the
+ * struct. Initialise with moving_avg_init_{{ type.suffix }}() */
+struct moving_avg_{{ type.suffix }}_t {
+	{{ type.name }} *buff;
+	uint32_t length;
+	/* Index of the oldest sample, which the next sample replaces */
+	uint32_t head;
+	/* Samples received, up to length */
+	uint32_t count;
+	/* Sum of the samples in the window */
+	{{ type.acc_type }} total;
+};
+
+/* Mean of length samples, 0 if length is 0 */
+{{ type.name }} average_{{ type.suffix }}(const {{ type.name }} *data_in, uint32_t length);
+
+/* Mean of the squares of length samples, 0 if length is 0
+{%- if type.acc_type != type.name %}. Returned as
+ * {{ type.acc_type }}, as the squares don't fit in {{ type.name }}
+{%- endif %} */
+{{ type.acc_type }} power_average_{{ type.suffix }}(const {{ type.name }} *data_in, uint32_t length);
+
+/* Initialises avg with an empty window of length samples (at least 1) held in
+ * buff */
+void moving_avg_init_{{ type.suffix }}(struct moving_avg_{{ type.suffix }}_t *avg, {{ type.name }} *buff, uint32_t length);
+
+/* Adds a sample to the window and returns the new average. Until the window
+ * is full, this is the average of the samples received so far */
+{{ type.name }} moving_average_{{ type.suffix }}(struct moving_avg_{{ type.suffix }}_t *avg, {{ type.name }} new_samp);
+
+/* moving_average_{{ type.suffix }}() for each of length samples, writing each average to
+ * data_out. data_in may be the same buffer as data_out */
+void moving_average_block_{{ type.suffix }}(struct moving_avg_{{ type.suffix }}_t *avg, const {{ type.name }} *data_in,
+							   {{ type.name }} *data_out, uint32_t length);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* AVG_{{ type.suffix | upper }}_H */

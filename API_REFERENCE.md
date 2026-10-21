@@ -11,6 +11,7 @@ In the descriptions below, `{{suffix}}` represents the type suffix (e.g., `float
 - [FIR Filters](#fir-filters)
 - [IIR Filters](#iir-filters)
 - [JSON Initialization](#json-initialization)
+- [Averaging](#averaging)
 - [Waveform Generation](#waveform-generation)
 - [Spectrum Generation](#spectrum-generation)
 - [FFT](#fft)
@@ -170,6 +171,42 @@ Functions for initializing filter structures from JSON (using cJSON) in `json_to
 | `free_sos_{{suffix}}(filt)` | Frees memory allocated for an SOS filter's sections. |
 
 The integer loaders also read `frac_bits` from the filter's JSON object, as written by `scripts/filter_design_wrapper.py`. They warn if it is missing, in which case the coefficients are treated as integers. They also warn if an IIR `a[0]` isn't `1 << frac_bits`. Coefficients pass through a JSON double, so `int64` coefficients are exact only up to 53 bits.
+
+---
+
+## Averaging
+
+Block averages and a moving average in `average/avg_{{suffix}}.h`, for every type. They only need freestanding headers, so they build without a C standard library.
+
+The integer types sum in `int64_t` and round each average to the nearest value, with halves away from zero. The sums must not overflow `int64_t`. For `power_average_{{suffix}}()`, the number of samples times the largest squared sample must be below 2^63. For example, that allows up to 2^32 samples of 16-bit data, or 2^16 samples of full-scale 24-bit data. The power of an `int32` signal is returned as `int64_t`, as the squares don't fit in `int32_t`.
+
+### Data Structures
+
+```c
+struct moving_avg_{{suffix}}_t {
+    {{type}} *buff;        // Window of the most recent samples, provided by the caller
+    uint32_t length;       // Window length
+    uint32_t head;         // Index of the oldest sample, which the next sample replaces
+    uint32_t count;        // Samples received, up to length
+    {{acc_type}} total;    // Sum of the samples in the window (int64_t for the integer types)
+};
+```
+
+### Functions
+
+| Function | Description |
+| :--- | :--- |
+| `average_{{suffix}}(data_in, length)` | Mean of `length` samples, 0 if `length` is 0. |
+| `power_average_{{suffix}}(data_in, length)` | Mean of the squares of `length` samples, 0 if `length` is 0. Returns `{{acc_type}}`. |
+| `moving_avg_init_{{suffix}}(avg, buff, length)` | Initialises `avg` with an empty window of `length` samples (at least 1) held in `buff`, which must outlive `avg`. |
+| `moving_average_{{suffix}}(avg, new_samp)` | Adds a sample to the window and returns the new average. Until the window is full, this is the average of the samples received so far. |
+| `moving_average_block_{{suffix}}(avg, data_in, data_out, length)` | `moving_average_{{suffix}}()` for each of `length` samples. `data_in` may be the same buffer as `data_out`. |
+
+The moving average keeps a running total, so each sample costs the same whatever the window length. For float and double, rounding errors in the running total would build up over time, so the total is summed again from the window each time it wraps. This costs one addition per sample on average.
+
+### Example
+
+`average/main.c` removes the DC offset from a set of tones in two ways: by subtracting block averages, and by subtracting a moving average of chunk averages. It then calculates the power of each 1ms. Both are run with float and int32 samples. Running `make` in `average/` builds and runs the example, then `scripts/plot_results.py` checks the results against numpy and plots them to `average/results/average.png`.
 
 ---
 

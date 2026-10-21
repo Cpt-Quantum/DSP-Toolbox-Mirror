@@ -17,6 +17,7 @@ All wrapper classes are templates that support the following numerical types (`n
 * [FIR Filters (`fir`)](#fir-filters-fir)
 * [IIR Filters (Direct Form) (`iir_ba`)](#iir-filters-direct-form-iir_ba)
 * [IIR Filters (SOS/Biquad) (`iir_sos`)](#iir-filters-sosbiquad-iir_sos)
+* [Averaging (`average`, `power_average`, `moving_avg`)](#averaging-average-power_average-moving_avg)
 * [JSON Parsing (`json_filter_parse`)](#json-parsing-json_filter_parse)
 * [Copying Filters (Multi-channel and Multi-threaded Use)](#copying-filters-multi-channel-and-multi-threaded-use)
 
@@ -95,6 +96,37 @@ A wrapper for Second Order Sections (SOS) IIR filters, which are more numericall
 * `void iir_filter(std::vector<num_t> &data_in, std::vector<num_t> &data_out, uint32_t length)`: Processes input data through all sections.
 * `void iir_filter(num_t *data_in, num_t *data_out, uint32_t length)`: Pointer overload of the above, for filtering at an offset within a larger buffer without copying.
 * `uint8_t get_frac_bits() const`: Integer types only, the Q format fractional bits of the coefficients.
+
+---
+
+## Averaging (`average`, `power_average`, `moving_avg`)
+
+Wrappers for the averaging functions in the [C API reference](../API_REFERENCE.md#averaging). The integer types sum in `int64_t` and round each average to the nearest value.
+
+### Functions
+
+* `num_t average(const std::vector<num_t> &data_in)`: Mean of the samples, 0 if there are none.
+* `num_t average(const num_t *data_in, uint32_t length)`: Pointer overload of the above, for averaging part of a larger buffer without copying.
+* `power_type power_average(const std::vector<num_t> &data_in)`: Mean of the squares of the samples, 0 if there are none. `power_type` is `avg_traits<num_t>::power_type`: `int64_t` for `int32_t`, because the squares don't fit in `int32_t`, and `num_t` otherwise.
+* `power_type power_average(const num_t *data_in, uint32_t length)`: Pointer overload of the above.
+
+### Moving Average (`moving_avg`)
+
+#### Constructors
+
+* `moving_avg(uint32_t length)`: Creates an empty window of `length` samples, owned by the object. Throws `std::invalid_argument` if `length` is 0.
+* `moving_avg(num_t *buff, uint32_t length)`: Uses the caller's buffer of `length` samples as the window, which must outlive the object.
+
+#### Methods
+
+* `num_t moving_average(num_t new_samp)`: Adds a sample to the window and returns the new average. Until the window is full, this is the average of the samples received so far.
+* `void moving_average(const std::vector<num_t> &data_in, std::vector<num_t> &data_out, uint32_t length)`: Averages each sample of `data_in` into `data_out`, which may be the same vector.
+* `void moving_average(const num_t *data_in, num_t *data_out, uint32_t length)`: Pointer overload of the above, for averaging at an offset within a larger buffer without copying.
+* `void reset()`: Empties the window.
+* `uint32_t get_length() const`: The window length.
+* `uint32_t get_count() const`: The number of samples in the window, up to the window length.
+
+Copies of a `moving_avg` have the same window length, with their own empty window, so one reference can be copied for each channel. Moving one keeps its window and state. See `examples/average`, which averages several channels in float and int32.
 
 ---
 

@@ -6,6 +6,10 @@
 CPP_WRAPPER_ROOT_DIR ?= ..
 
 # Define the .c files needed
+CPP_WRAPPER_SRC += $(CPP_WRAPPER_ROOT_DIR)/average/avg_double.c
+CPP_WRAPPER_SRC += $(CPP_WRAPPER_ROOT_DIR)/average/avg_float.c
+CPP_WRAPPER_SRC += $(CPP_WRAPPER_ROOT_DIR)/average/avg_int32.c
+CPP_WRAPPER_SRC += $(CPP_WRAPPER_ROOT_DIR)/average/avg_int64.c
 CPP_WRAPPER_SRC += $(CPP_WRAPPER_ROOT_DIR)/inc/complex_float.c
 CPP_WRAPPER_SRC += $(CPP_WRAPPER_ROOT_DIR)/inc/spectrum_gen_double.c
 CPP_WRAPPER_SRC += $(CPP_WRAPPER_ROOT_DIR)/inc/spectrum_gen_float.c

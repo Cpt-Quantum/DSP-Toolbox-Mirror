@@ -1,0 +1,91 @@
+#include <stdint.h>
+
+#include "avg_{{ type.suffix }}.h"
+
+/* Divides a sum by the number of samples summed
+{%- if type.fixed_point %}, rounding to the nearest value
+ * with halves away from zero. The result is within the range of the samples,
+ * so always fits in {{ type.name }}
+{%- endif %} */
+static inline {{ type.name }} mean_{{ type.suffix }}({{ type.acc_type }} sum, uint32_t n) {
+{%- if type.fixed_point %}
+	const {{ type.acc_type }} half = ({{ type.acc_type }})(n / 2);
+	if (sum >= 0) {
+		return ({{ type.name }})((sum + half) / ({{ type.acc_type }})n);
+	}
+	return ({{ type.name }})((sum - half) / ({{ type.acc_type }})n);
+{%- else %}
+	return sum / ({{ type.name }})n;
+{%- endif %}
+}
+
+{{ type.name }} average_{{ type.suffix }}(const {{ type.name }} *data_in, uint32_t length) {
+	if (length == 0) {
+		return ({{ type.name }})0;
+	}
+	{{ type.acc_type }} sum = ({{ type.acc_type }})0;
+	for (uint32_t i = 0; i < length; i++) {
+		sum += {{ type.acc_cast }}data_in[i];
+	}
+	return mean_{{ type.suffix }}(sum, length);
+}
+
+{{ type.acc_type }} power_average_{{ type.suffix }}(const {{ type.name }} *data_in, uint32_t length) {
+	if (length == 0) {
+		return ({{ type.acc_type }})0;
+	}
+	{{ type.acc_type }} sum = ({{ type.acc_type }})0;
+	for (uint32_t i = 0; i < length; i++) {
+		const {{ type.acc_type }} x = {{ type.acc_cast }}data_in[i];
+		sum += x * x;
+	}
+{%- if type.fixed_point %}
+	/* The sum is never negative, so round halves up */
+	return (sum + ({{ type.acc_type }})(length / 2)) / ({{ type.acc_type }})length;
+{%- else %}
+	return sum / ({{ type.acc_type }})length;
+{%- endif %}
+}
+
+void moving_avg_init_{{ type.suffix }}(struct moving_avg_{{ type.suffix }}_t *avg, {{ type.name }} *buff, uint32_t length) {
+	avg->buff = buff;
+	avg->length = length;
+	avg->head = 0;
+	avg->count = 0;
+	avg->total = ({{ type.acc_type }})0;
+}
+
+{{ type.name }} moving_average_{{ type.suffix }}(struct moving_avg_{{ type.suffix }}_t *avg, {{ type.name }} new_samp) {
+	/* Replace the oldest sample in the total, once the window is full */
+	if (avg->count < avg->length) {
+		avg->count++;
+	} else {
+		avg->total -= {{ type.acc_cast }}avg->buff[avg->head];
+	}
+	avg->buff[avg->head] = new_samp;
+	avg->total += {{ type.acc_cast }}new_samp;
+
+	avg->head++;
+	if (avg->head == avg->length) {
+		avg->head = 0;
+{%- if not type.fixed_point %}
+		/* Rounding errors in the running total don't cancel out as samples
+		 * leave the window, so it is summed again from the window each time
+		 * it wraps. This costs one addition per sample on average */
+		{{ type.acc_type }} total = ({{ type.acc_type }})0;
+		for (uint32_t i = 0; i < avg->count; i++) {
+			total += avg->buff[i];
+		}
+		avg->total = total;
+{%- endif %}
+	}
+
+	return mean_{{ type.suffix }}(avg->total, avg->count);
+}
+
+void moving_average_block_{{ type.suffix }}(struct moving_avg_{{ type.suffix }}_t *avg, const {{ type.name }} *data_in,
+							   {{ type.name }} *data_out, uint32_t length) {
+	for (uint32_t i = 0; i < length; i++) {
+		data_out[i] = moving_average_{{ type.suffix }}(avg, data_in[i]);
+	}
+}

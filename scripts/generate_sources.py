@@ -71,6 +71,10 @@ filter_templates = [
     ("json_to_filt.h.j2", "json_to_filt_{type}.h"),
     ("json_to_filt.c.j2", "json_to_filt_{type}.c"),
 ]
+avg_templates = [
+    ("avg.h.j2", "avg_{type}.h"),
+    ("avg.c.j2", "avg_{type}.c"),
+]
 fft_templates = [
     ("fft.h.j2", "fft_{type}.h"),
     ("fft.c.j2", "fft_{type}.c"),
@@ -213,6 +217,7 @@ if __name__ == "__main__":
     )
     generate("inc", inc_templates)
     generate("filter", filter_templates, copy)
+    generate("average", avg_templates)
     print(f"Float FFT twiddles: {args.fft_twiddle_precision}")
     generate(
         "fft",
