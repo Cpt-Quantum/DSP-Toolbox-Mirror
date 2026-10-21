@@ -18,35 +18,53 @@ if __name__ == "__main__":
     # Initialize the exporter
     designer = filter_wrapper(f_s=f_s)
 
-    # Design the base IIR (a, b)
-    designer.add_iir_ba(
-        name="iir_base",
-        ftype=filter_e.LOWPASS,
-        f_pb=f_pb,
-        f_sb=f_sb,
-        gpass=1,
-        gstop=filt_gain
-    )
+    # Each filter is designed twice, as floating point coefficients for the
+    # float filters and as Q format coefficients for the int32 filters. The
+    # fixed point format is (total bits, fractional bits), with the
+    # fractional bits exported to the JSON alongside the coefficients
+    formats = {
+        "": None,
+        "_int32": {
+            # The FIR coefficients are all below 1, so Q0.31
+            "fir": (32, 31),
+            # The IIR coefficients reach about 3.2 (and a[0] must be 1.0), so
+            # Q2.29
+            "iir": (32, 29),
+        },
+    }
+    for suffix, fmt in formats.items():
+        # Design the base IIR (a, b)
+        designer.add_iir_ba(
+            name="iir_base" + suffix,
+            ftype=filter_e.LOWPASS,
+            f_pb=f_pb,
+            f_sb=f_sb,
+            gpass=1,
+            gstop=filt_gain,
+            fixed_point_format=fmt and fmt["iir"],
+        )
 
-    # Design the SoS IIR
-    designer.add_iir_sos(
-        name="iir_sos",
-        ftype=filter_e.LOWPASS,
-        f_pb=f_pb,
-        f_sb=f_sb,
-        gpass=1,
-        gstop=filt_gain,
-        gain=1.0
-    )
+        # Design the SoS IIR
+        designer.add_iir_sos(
+            name="iir_sos" + suffix,
+            ftype=filter_e.LOWPASS,
+            f_pb=f_pb,
+            f_sb=f_sb,
+            gpass=1,
+            gstop=filt_gain,
+            gain=1.0,
+            fixed_point_format=fmt and fmt["iir"],
+        )
 
-    # Design the FIR
-    designer.add_fir(
-        name="fir",
-        ftype=filter_e.LOWPASS,
-        f_pb=f_pb,
-        f_sb=f_sb,
-        numtaps=fir_taps
-    )
+        # Design the FIR
+        designer.add_fir(
+            name="fir" + suffix,
+            ftype=filter_e.LOWPASS,
+            f_pb=f_pb,
+            f_sb=f_sb,
+            numtaps=fir_taps,
+            fixed_point_format=fmt and fmt["fir"],
+        )
 
     # Write to a JSON file
     designer.export_to_json(filename)

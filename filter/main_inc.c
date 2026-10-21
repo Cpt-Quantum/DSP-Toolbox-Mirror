@@ -2,6 +2,7 @@
 #include "../cjson/cJSON.h"
 #include "../cjson/cJSON_helpers.h"
 #include "json_to_filt_float.h"
+#include "json_to_filt_int32.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,6 +13,10 @@ struct sos_filter_float_t sos_filt;
 struct iir_float_t iir_filt;
 struct fir_float_t fir_filt;
 struct fir_float_t fir_decimation_filt;
+struct sos_filter_int32_t sos_filt_int32;
+struct iir_int32_t iir_filt_int32;
+struct fir_int32_t fir_filt_int32;
+struct fir_int32_t fir_decimation_filt_int32;
 
 void filter_init(const char *filename) {
 	/* Parse the file into the cJSON object */
@@ -31,6 +36,9 @@ void filter_init(const char *filename) {
 	cJSON *fir_node = cJSON_GetObjectItem(root, "fir");
 	cJSON *iir_node = cJSON_GetObjectItem(root, "iir_base");
 	cJSON *sos_node = cJSON_GetObjectItem(root, "iir_sos");
+	cJSON *fir_int32_node = cJSON_GetObjectItem(root, "fir_int32");
+	cJSON *iir_int32_node = cJSON_GetObjectItem(root, "iir_base_int32");
+	cJSON *sos_int32_node = cJSON_GetObjectItem(root, "iir_sos_int32");
 	/* Retrieve the sample rate */
 	f_s = get_sample_rate_from_json_float(f_s_node);
 	/* Create the filters from each node */
@@ -38,6 +46,12 @@ void filter_init(const char *filename) {
 	init_sos_from_json_float(&sos_filt, sos_node);
 	init_fir_from_json_float(&fir_filt, fir_node);
 	init_fir_from_json_float(&fir_decimation_filt, fir_node);
+	/* Create the integer filters, which also load the Q format of their
+	 * coefficients */
+	init_iir_from_json_int32(&iir_filt_int32, iir_int32_node);
+	init_sos_from_json_int32(&sos_filt_int32, sos_int32_node);
+	init_fir_from_json_int32(&fir_filt_int32, fir_int32_node);
+	init_fir_from_json_int32(&fir_decimation_filt_int32, fir_int32_node);
 	/* Cleanup the cJSON objects */
 	cJSON_Delete(root);
 }
@@ -47,4 +61,8 @@ void filter_deinit() {
 	free_sos_float(&sos_filt);
 	free_fir_float(&fir_filt);
 	free_fir_float(&fir_decimation_filt);
+	free_iir_int32(&iir_filt_int32);
+	free_sos_int32(&sos_filt_int32);
+	free_fir_int32(&fir_filt_int32);
+	free_fir_int32(&fir_decimation_filt_int32);
 }

@@ -88,6 +88,8 @@ The float and double filters are unchanged and have no `frac_bits` field.
 
 To quantise coefficients, pass `fixed_point_format=(total_bits, frac_bits)` to the design functions in `scripts/filter_design_wrapper.py`. The coefficients are then rounded to integers and `frac_bits` is exported to the JSON with them. A `ValueError` is raised if a coefficient doesn't fit the format, rather than clipping it and changing the response.
 
+The example in `filter/main.c` runs `int32` copies of each filter alongside the float ones, on the same input. `make` in `filter/` plots both, and `scripts/compare_filters.py` prints each one's SNR against a double precision SciPy reference.
+
 ### Data Structures
 
 ```c
