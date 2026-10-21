@@ -15,13 +15,50 @@ static inline double spectrum_uniform_{{ type.suffix }}(uint64_t *state) {
 	return ((double)(spectrum_rand_{{ type.suffix }}(state) >> 11) + 1.0) * (1.0 / 9007199254740992.0);
 }
 
-void generate_spectrum_waveform_{{ type.suffix }}({{ type.name }} *t, {{ type.name }} *x, uint32_t data_length, uint32_t sample_rate, uint32_t num_steps, AMPLITUDE_SPECTRUM_E profile, {{ type.name }} base_amplitude, {{ type.name }} noise_variance, uint32_t seed) {
+/* Amplitude of the bin at position r through the frequency sweep, from 0.0 to
+ * 1.0, for the profile. Kept in the maths type, so the profile isn't
+ * truncated for the integer types */
+static {{ wave.type }} spectrum_profile_{{ type.suffix }}(AMPLITUDE_SPECTRUM_E profile, {{ wave.type }} r) {
+	switch (profile) {
+		case AMPLITUDE_SPECTRUM_FLAT:
+			return ({{ wave.type }})1.0{{ wave.literal_suffix }};
+
+		case AMPLITUDE_SPECTRUM_LOW_DECAY:
+			/* Starts at 0, smoothly rises to 1.0 (High-Pass test) */
+			return ({{ wave.type }})(1.0{{ wave.literal_suffix }} - exp{{ wave.math_suffix }}(-5.0{{ wave.literal_suffix }} * r));
+
+		case AMPLITUDE_SPECTRUM_HIGH_DECAY:
+			/* Stays near 1.0, smoothly drops to 0 at the tail (Low-Pass test) */
+			return ({{ wave.type }})(1.0{{ wave.literal_suffix }} - exp{{ wave.math_suffix }}(5.0{{ wave.literal_suffix }} * (r - 1.0{{ wave.literal_suffix }})));
+
+		case AMPLITUDE_SPECTRUM_BANDPASS:
+			/* Gaussian bell curve centered at r = 0.5 */
+			return ({{ wave.type }})exp{{ wave.math_suffix }}(-25.0{{ wave.literal_suffix }} * (r - 0.5{{ wave.literal_suffix }}) * (r - 0.5{{ wave.literal_suffix }}));
+
+		case AMPLITUDE_SPECTRUM_BANDSTOP:
+			/* Inverse Gaussian notch centered at r = 0.5 */
+			return ({{ wave.type }})(1.0{{ wave.literal_suffix }} - exp{{ wave.math_suffix }}(-25.0{{ wave.literal_suffix }} * (r - 0.5{{ wave.literal_suffix }}) * (r - 0.5{{ wave.literal_suffix }})));
+
+		case AMPLITUDE_SPECTRUM_LOW_BOOST:
+			/* Starts at 2.0, drops smoothly to 1.0 */
+			return ({{ wave.type }})(1.0{{ wave.literal_suffix }} + exp{{ wave.math_suffix }}(-10.0{{ wave.literal_suffix }} * r));
+
+		case AMPLITUDE_SPECTRUM_HIGH_BOOST:
+			/* Stays near 1.0, rises smoothly to 2.0 at the tail */
+			return ({{ wave.type }})(1.0{{ wave.literal_suffix }} + exp{{ wave.math_suffix }}(10.0{{ wave.literal_suffix }} * (r - 1.0{{ wave.literal_suffix }})));
+
+		default:
+			return ({{ wave.type }})1.0{{ wave.literal_suffix }};
+	}
+}
+
+void generate_spectrum_waveform_{{ type.suffix }}(wave_math_{{ type.suffix }}_t *t, {{ type.name }} *x, uint32_t data_length, uint32_t sample_rate, uint32_t num_steps, AMPLITUDE_SPECTRUM_E profile, {{ type.name }} base_amplitude, {{ type.name }} noise_variance, uint32_t seed) {
 	/* Generate the time array */
 	gen_time_{{ type.suffix }}(t, data_length, sample_rate);
 
 	/* Clear the output buffer */
 	for (uint32_t i = 0; i < data_length; i++) {
-		x[i] = ({{ type.name }})0.0{{ type.literal_suffix }};
+		x[i] = ({{ type.name }})0.0{{ wave.literal_suffix }};
 	}
 
 	/* Bin k is at k * sample_rate / (2 * num_steps) Hz, so at sample n its
@@ -32,62 +69,35 @@ void generate_spectrum_waveform_{{ type.suffix }}({{ type.name }} *t, {{ type.na
 	uint64_t period = 2 * (uint64_t)num_steps;
 	uint32_t period_length = (data_length < period) ? data_length : (uint32_t)period;
 
+{%- if not type.fixed_point %}
 	for (uint32_t step = 1; step <= num_steps; step++) {
 		/* r normalizes the position in the frequency sweep from 0.0 to 1.0 */
-		{{ type.math_type }} r = ({{ type.math_type }})step / ({{ type.math_type }})num_steps;
-		/* Kept in the maths type, so the profile isn't truncated for the
-		 * integer types */
-		{{ type.math_type }} amplitude = ({{ type.math_type }})1.0{{ type.literal_suffix }};
-
-		/* Apply mathematically pure test curves */
-		switch (profile) {
-			case AMPLITUDE_SPECTRUM_FLAT:
-				amplitude = ({{ type.math_type }})1.0{{ type.literal_suffix }};
-				break;
-
-			case AMPLITUDE_SPECTRUM_LOW_DECAY:
-				/* Starts at 0, smoothly rises to 1.0 (High-Pass test) */
-				amplitude = ({{ type.math_type }})(1.0{{ type.literal_suffix }} - exp{{ type.math_suffix }}(-5.0{{ type.literal_suffix }} * r));
-				break;
-
-			case AMPLITUDE_SPECTRUM_HIGH_DECAY:
-				/* Stays near 1.0, smoothly drops to 0 at the tail (Low-Pass test) */
-				amplitude = ({{ type.math_type }})(1.0{{ type.literal_suffix }} - exp{{ type.math_suffix }}(5.0{{ type.literal_suffix }} * (r - 1.0{{ type.literal_suffix }})));
-				break;
-
-			case AMPLITUDE_SPECTRUM_BANDPASS:
-				/* Gaussian bell curve centered at r = 0.5 */
-				amplitude = ({{ type.math_type }})exp{{ type.math_suffix }}(-25.0{{ type.literal_suffix }} * (r - 0.5{{ type.literal_suffix }}) * (r - 0.5{{ type.literal_suffix }}));
-				break;
-
-			case AMPLITUDE_SPECTRUM_BANDSTOP:
-				/* Inverse Gaussian notch centered at r = 0.5 */
-				amplitude = ({{ type.math_type }})(1.0{{ type.literal_suffix }} - exp{{ type.math_suffix }}(-25.0{{ type.literal_suffix }} * (r - 0.5{{ type.literal_suffix }}) * (r - 0.5{{ type.literal_suffix }})));
-				break;
-
-			case AMPLITUDE_SPECTRUM_LOW_BOOST:
-				/* Starts at 2.0, drops smoothly to 1.0 */
-				amplitude = ({{ type.math_type }})(1.0{{ type.literal_suffix }} + exp{{ type.math_suffix }}(-10.0{{ type.literal_suffix }} * r));
-				break;
-
-			case AMPLITUDE_SPECTRUM_HIGH_BOOST:
-				/* Stays near 1.0, rises smoothly to 2.0 at the tail */
-				amplitude = ({{ type.math_type }})(1.0{{ type.literal_suffix }} + exp{{ type.math_suffix }}(10.0{{ type.literal_suffix }} * (r - 1.0{{ type.literal_suffix }})));
-				break;
-
-			default:
-				amplitude = ({{ type.math_type }})1.0{{ type.literal_suffix }};
-				break;
-		}
+		{{ wave.type }} r = ({{ wave.type }})step / ({{ wave.type }})num_steps;
+		{{ wave.type }} amplitude = spectrum_profile_{{ type.suffix }}(profile, r);
 
 		/* Add this frequency bin to the first period */
-		{{ type.math_type }} bin_amplitude = ({{ type.math_type }})(amplitude * base_amplitude);
+		{{ wave.type }} bin_amplitude = ({{ wave.type }})(amplitude * base_amplitude);
 		for (uint32_t n = 0; n < period_length; n++) {
 			uint64_t phase_index = ((uint64_t)step * n) % period;
 			x[n] = x[n] + {{ type.math_prefix }}(bin_amplitude *
-				sin{{ type.math_suffix }}(3.14159265358979323846{{ type.literal_suffix }} * ({{ type.math_type }})phase_index / ({{ type.math_type }})num_steps));
+				sin{{ wave.math_suffix }}(3.14159265358979323846{{ wave.literal_suffix }} * ({{ wave.type }})phase_index / ({{ wave.type }})num_steps));
 		}
 	}
+{%- else %}
+	/* The bins of each sample are summed in {{ wave.type }} and then rounded once,
+	 * rather than rounding each bin, so the rounding errors don't add up */
+	for (uint32_t n = 0; n < period_length; n++) {
+		{{ wave.type }} sum = 0.0{{ wave.literal_suffix }};
+		for (uint32_t step = 1; step <= num_steps; step++) {
+			{{ wave.type }} r = ({{ wave.type }})step / ({{ wave.type }})num_steps;
+			{{ wave.type }} bin_amplitude = spectrum_profile_{{ type.suffix }}(profile, r) * ({{ wave.type }})base_amplitude;
+			uint64_t phase_index = ((uint64_t)step * n) % period;
+			sum += bin_amplitude *
+				sin{{ wave.math_suffix }}(3.14159265358979323846{{ wave.literal_suffix }} * ({{ wave.type }})phase_index / ({{ wave.type }})num_steps);
+		}
+		x[n] = waveform_add_sample_{{ type.suffix }}(x[n], sum);
+	}
+{%- endif %}
 
 	/* Repeat the first period across the rest of the waveform */
 	for (uint32_t i = period_length; i < data_length; i++) {
@@ -102,10 +112,19 @@ void generate_spectrum_waveform_{{ type.suffix }}({{ type.name }} *t, {{ type.na
 		for (uint32_t i = 0; i < data_length; i += 2) {
 			double radius = std_dev * sqrt(-2.0 * log(spectrum_uniform_{{ type.suffix }}(&state)));
 			double angle = 6.28318530717958647692 * spectrum_uniform_{{ type.suffix }}(&state);
+{%- if not type.fixed_point %}
 			x[i] = x[i] + {{ type.math_prefix }}(radius * cos(angle));
 			if (i + 1 < data_length) {
 				x[i + 1] = x[i + 1] + {{ type.math_prefix }}(radius * sin(angle));
 			}
+{%- else %}
+			/* Each sample is rounded and saturated, as the tones near full
+			 * scale plus the noise can overflow */
+			x[i] = waveform_add_sample_{{ type.suffix }}(x[i], ({{ wave.type }})(radius * cos(angle)));
+			if (i + 1 < data_length) {
+				x[i + 1] = waveform_add_sample_{{ type.suffix }}(x[i + 1], ({{ wave.type }})(radius * sin(angle)));
+			}
+{%- endif %}
 		}
 	}
 }

@@ -218,9 +218,50 @@ Tools for creating signals and time/frequency vectors in `waveform_gen_{{suffix}
 
 | Structure | Description |
 | :--- | :--- |
-| `wave_properties_{{suffix}}_t` | Defines a single superposition component (Amp, Freq, Phase, etc.). |
+| `wave_properties_{{suffix}}_t` | Defines a single superposition component: `amplitude`, `offset`, `frequency`, `phase` (a fraction of a period), `function_type`, and `duty_cycle`, `sweep_rate` and `delay` for the functions that use them. |
 | `wave_settings_{{suffix}}_t` | Settings for generating a real-valued composite waveform. |
 | `wave_settings_complex_{{suffix}}_t` | Settings for generating a complex-valued composite waveform. |
+
+### Functions (`WAVEFORM_FUNC_E`)
+
+Every function has a peak of `amplitude`, and `offset` is added to every sample. The square, triangle, sawtooth and chirp match `scipy.signal`'s functions of the same name.
+
+| Function | Waveform | Extra members |
+| :--- | :--- | :--- |
+| `FUNCTION_SINE` | `sin(2π(frequency·t + phase))` | |
+| `FUNCTION_COS` | `cos(2π(frequency·t + phase))` | |
+| `FUNCTION_SQUARE` | +1 for the first `duty_cycle` of each period, then -1. Matches `signal.square`. | `duty_cycle`, 0 to 1, where 0 selects 0.5 so a zero initialised struct is symmetric |
+| `FUNCTION_TRIANGLE` | Rises from -1 to +1 over the first half of each period, then falls back. Matches `signal.sawtooth(width=0.5)`. | |
+| `FUNCTION_SAWTOOTH` | Rises from -1 to +1 over each period. Matches `signal.sawtooth`. | |
+| `FUNCTION_CHIRP` | Linear sweep `cos(2π(frequency·t + sweep_rate·t²/2 + phase))`, starting at `frequency`. Matches `signal.chirp(method="linear")`. | `sweep_rate`, in Hz per second, negative to sweep down |
+| `FUNCTION_IMPULSE` | 1 at the first sample at or after `delay`, 0 elsewhere. `t` must be increasing. | `delay`, in seconds |
+| `FUNCTION_STEP` | 0 before `delay`, then 1 from the first sample at or after it. | `delay`, in seconds |
+
+Members that a function doesn't use can be left as 0, so designated initialisers only need the ones in use:
+
+```c
+wave_properties_float_t waves[] = {
+    {.amplitude = 1, .frequency = 50, .function_type = FUNCTION_SQUARE, .duty_cycle = 0.25f},
+    {.amplitude = 1, .frequency = 10, .function_type = FUNCTION_CHIRP, .sweep_rate = 90},
+    {.amplitude = 2, .function_type = FUNCTION_STEP, .delay = 0.5f},
+};
+```
+
+### Integer waveforms
+
+The waveforms are always generated in floating point, `wave_math_{{suffix}}_t`. For `float` and `double` that is the type itself. For `int32` and `int64`, the time and frequency buffers (`gen_time_{{suffix}}()`, `gen_freq_{{suffix}}()`) and every member of `wave_properties_{{suffix}}_t` are floating point too, and only the samples are integers. Each wave is rounded to the nearest integer (halves away from zero) and saturated to the type's range as it is added, so waves past full scale clip rather than wrap. `dc_offset` in the settings structs stays in the sample type.
+
+This is for creating integer test signals, e.g. for the integer filters, on a CPU or an MCU with an FPU. The precision is chosen when the sources are generated:
+
+| Option | Description |
+| :--- | :--- |
+| *(default)* | `int32` in float, `int64` in double. |
+| `--int-waveform-precision double` | Both in double. `int32` waveforms are then exact to about 1 LSB at full scale. |
+| `--int-waveform-precision float` | Both in float, for targets with only a single precision FPU. The phase is only accurate to float precision, so sine, chirp and the other periodic waves are out by about `1e-5` of the amplitude after tens of cycles (around 10000 LSB for an `int32` amplitude of `1e9`). Steps and impulses stay exact. |
+
+`spectrum_gen` uses the same type for its time buffer and calculations. For the integer types it sums all of the frequency bins of each sample before rounding once, and rounds and saturates the noise in the same way.
+
+`waveform_add_sample_{{suffix}}(x, value)` *(integer types only)* returns the sample `x` plus `value`, rounded and saturated as above, for adding other floating point signals to an integer waveform in the same way.
 
 ### Generation Functions
 
@@ -230,6 +271,8 @@ Tools for creating signals and time/frequency vectors in `waveform_gen_{{suffix}
 | `gen_freq_{{suffix}}(f, len, fs)` | Fills `f` with frequency bins. |
 | `add_sin_{{suffix}}(t, x, props, len)` | Adds a sine component to buffer `x`. |
 | `add_cos_{{suffix}}(t, x, props, len)` | Adds a cosine component to buffer `x`. |
+| `waveform_add_superposition_{{suffix}}(props, t, x, len)` | Adds the wave described by `props` to `x`, for any `WAVEFORM_FUNC_E`. |
+| `waveform_add_superposition_complex_{{suffix}}(props, t, x, write_real, write_imag, len)` | The same for the real and/or imaginary parts of a complex buffer. |
 | `init_waveform_{{suffix}}(settings, t, x)` | Fully initializes a waveform buffer from settings. |
 | `init_waveform_complex_{{suffix}}(settings, t, x)` | Fully initializes a complex waveform buffer from settings. |
 
@@ -243,6 +286,10 @@ Tools for creating signals and time/frequency vectors in `waveform_gen_{{suffix}
 | `divide_waveform_complex_{{suffix}}(x, factor, len)` | Divides a complex buffer. |
 | `mask_waveform_{{suffix}}(x, bit_width, len)` | Limits (saturates) buffer values to the range of a signed integer of `bit_width`. |
 | `mask_waveform_complex_{{suffix}}(x, bit_width, len)` | Limits (saturates) complex buffer values to the range of a signed integer of `bit_width`. |
+
+### Example
+
+`waveform/main.c` generates one wave of each of the non sinusoidal functions, and a superposition of several of them, writing them to `waveform/results/waveform_data.csv`. Running `make` in `waveform/` builds and runs it, then `scripts/plot_results.py` compares each wave against `scipy.signal` and plots them to `results/waveform.png`.
 
 ---
 

@@ -27,6 +27,8 @@ All wrapper classes are templates that support the following numerical types (`n
 
 A container and generator class for real-valued waveforms.
 
+The times and wave properties are in `math_t`, the floating point type the waveforms are generated in (`wave_math_{{suffix}}_t` in C). It is `num_t` for `float` and `double`. For `int32_t` and `int64_t` it is chosen with `--int-waveform-precision` when the sources are generated (float and double by default), and only the samples in `x` are integers. `waveform_t<num_t>` creates a time series of `math_t`, `std::vector<math_t> t`, to pass to `gen_waveform()` and `gen_spectrum()`.
+
 ### Constructor
 
 * `waveform_x(unsigned int wave_length)`: Creates a waveform container of the specified length.
@@ -34,9 +36,9 @@ A container and generator class for real-valued waveforms.
 
 ### Methods
 
-* `void add_wave_properties(num_t amplitude, num_t offset, num_t frequency, num_t phase, WAVEFORM_FUNC_E function_type)`: Adds a new superposition component (Sine/Cos) to the waveform definition.
-* `void gen_waveform(std::vector<num_t> &t)`: Populates the internal `x` buffer based on the provided time vector `t`.
-* `void gen_spectrum(std::vector<num_t> &t, std::size_t length, uint32_t f_s, uint32_t num_steps, AMPLITUDE_SPECTRUM_E profile, num_t base_amplitude, num_t noise_variance, uint32_t seed)`: Fills the waveform with `num_steps` sine waves shaped by `profile`, plus Gaussian noise with variance `noise_variance` that is reproducible from `seed`. See `generate_spectrum_waveform` in the [C API reference](../API_REFERENCE.md#spectrum-generation).
+* `void add_wave_properties(math_t amplitude, math_t offset, math_t frequency, math_t phase, WAVEFORM_FUNC_E function_type, math_t duty_cycle = 0, math_t sweep_rate = 0, math_t delay = 0)`: Adds a new superposition component to the waveform definition, of any `WAVEFORM_FUNC_E` (sine, cosine, square, triangle, sawtooth, chirp, impulse or step). The last three are only used by the square (`duty_cycle`, where 0 gives 0.5), the chirp (`sweep_rate` in Hz per second) and the impulse and step (`delay` in seconds), see the C API reference.
+* `void gen_waveform(std::vector<math_t> &t)`: Populates the internal `x` buffer based on the provided time vector `t`.
+* `void gen_spectrum(std::vector<math_t> &t, std::size_t length, uint32_t f_s, uint32_t num_steps, AMPLITUDE_SPECTRUM_E profile, num_t base_amplitude, num_t noise_variance, uint32_t seed)`: Fills the waveform with `num_steps` sine waves shaped by `profile`, plus Gaussian noise with variance `noise_variance` that is reproducible from `seed`. See `generate_spectrum_waveform` in the [C API reference](../API_REFERENCE.md#spectrum-generation).
 * `void scale(num_t factor)`: Multiplies all values in the waveform by `factor`.
 * `void divide(num_t factor)`: Divides all values in the waveform by `factor`.
 * `void mask(uint32_t bit_width)`: Saturates values to the range of a signed integer of `bit_width`.

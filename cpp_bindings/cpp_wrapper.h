@@ -37,37 +37,20 @@
 #include <type_traits>
 #include <vector>
 
-template <typename num_t> class waveform_t {
-  private:
-	unsigned int sample_rate;
-	unsigned int wave_length;
-
-  public:
-	std::vector<num_t> t;
-	waveform_t(unsigned int _sample_rate, unsigned int _wave_length) {
-		/* Set the internal variables */
-		sample_rate = _sample_rate;
-		wave_length = _wave_length;
-		/* Create the time array and then calculate the time values */
-		t.reserve(_wave_length);
-		for (unsigned int i = 0; i < _wave_length; i++) {
-			t.push_back(((num_t)i) / _sample_rate);
-		}
-	};
-};
-
 /* Map the numerical type (float/double/int32_t) to struct and function types
  * for waveform creation */
 template <typename num_t> struct waveform_traits;
 /* Float Specialization */
 template <> struct waveform_traits<float> {
 	using props_type = wave_properties_float_t;
+	/* Floating point type of the times and wave properties */
+	using math_type = wave_math_float_t;
 
-	static inline void add_superposition(props_type props, float *t, float *y,
+	static inline void add_superposition(props_type props, math_type *t, float *y,
 										 std::size_t len) {
 		waveform_add_superposition_float(props, t, y, len);
 	}
-	static inline void gen_spectrum(float *t, float *y, std::size_t len,
+	static inline void gen_spectrum(math_type *t, float *y, std::size_t len,
 									uint32_t f_s, uint32_t num_steps,
 									AMPLITUDE_SPECTRUM_E profile, float base_amplitude, float noise_variance,
 									uint32_t seed) {
@@ -86,12 +69,14 @@ template <> struct waveform_traits<float> {
 /* Double Specialization */
 template <> struct waveform_traits<double> {
 	using props_type = wave_properties_double_t;
+	/* Floating point type of the times and wave properties */
+	using math_type = wave_math_double_t;
 
-	static inline void add_superposition(props_type props, double *t, double *y,
+	static inline void add_superposition(props_type props, math_type *t, double *y,
 										 std::size_t len) {
 		waveform_add_superposition_double(props, t, y, len);
 	}
-	static inline void gen_spectrum(double *t, double *y, std::size_t len,
+	static inline void gen_spectrum(math_type *t, double *y, std::size_t len,
 									uint32_t f_s, uint32_t num_steps,
 									AMPLITUDE_SPECTRUM_E profile, double base_amplitude, double noise_variance,
 									uint32_t seed) {
@@ -110,12 +95,14 @@ template <> struct waveform_traits<double> {
 /* Int32 Specialization */
 template <> struct waveform_traits<int32_t> {
 	using props_type = wave_properties_int32_t;
+	/* Floating point type of the times and wave properties */
+	using math_type = wave_math_int32_t;
 
-	static inline void add_superposition(props_type props, int32_t *t,
+	static inline void add_superposition(props_type props, math_type *t,
 										 int32_t *y, std::size_t len) {
 		waveform_add_superposition_int32(props, t, y, len);
 	}
-	static inline void gen_spectrum(int32_t *t, int32_t *y, std::size_t len,
+	static inline void gen_spectrum(math_type *t, int32_t *y, std::size_t len,
 									uint32_t f_s, uint32_t num_steps,
 									AMPLITUDE_SPECTRUM_E profile, int32_t base_amplitude, int32_t noise_variance,
 									uint32_t seed) {
@@ -134,12 +121,14 @@ template <> struct waveform_traits<int32_t> {
 /* Int64 Specialization */
 template <> struct waveform_traits<int64_t> {
 	using props_type = wave_properties_int64_t;
+	/* Floating point type of the times and wave properties */
+	using math_type = wave_math_int64_t;
 
-	static inline void add_superposition(props_type props, int64_t *t,
+	static inline void add_superposition(props_type props, math_type *t,
 										 int64_t *y, std::size_t len) {
 		waveform_add_superposition_int64(props, t, y, len);
 	}
-	static inline void gen_spectrum(int64_t *t, int64_t *y, std::size_t len,
+	static inline void gen_spectrum(math_type *t, int64_t *y, std::size_t len,
 									uint32_t f_s, uint32_t num_steps,
 									AMPLITUDE_SPECTRUM_E profile, int64_t base_amplitude, int64_t noise_variance,
 									uint32_t seed) {
@@ -155,11 +144,35 @@ template <> struct waveform_traits<int64_t> {
 		mask_waveform_int64(x, bit_width, len);
 	}
 };
+/* Time series for the waveforms of num_t. The times are in the floating
+ * point type the waveforms are generated in (waveform_traits::math_type), so
+ * they aren't truncated for the integer types */
+template <typename num_t> class waveform_t {
+  private:
+	using math_t = typename waveform_traits<num_t>::math_type;
+
+	unsigned int sample_rate;
+	unsigned int wave_length;
+
+  public:
+	std::vector<math_t> t;
+	waveform_t(unsigned int _sample_rate, unsigned int _wave_length) {
+		/* Set the internal variables */
+		sample_rate = _sample_rate;
+		wave_length = _wave_length;
+		/* Create the time array and then calculate the time values */
+		t.reserve(_wave_length);
+		for (unsigned int i = 0; i < _wave_length; i++) {
+			t.push_back(((math_t)i) / _sample_rate);
+		}
+	};
+};
 /* Waveform creation/storage wrapper class */
 template <typename num_t> class waveform_x {
   private:
 	using traits = waveform_traits<num_t>;
 	using props_t = typename traits::props_type;
+	using math_t = typename traits::math_type;
 
 	unsigned int wave_length;
 	std::vector<props_t> wave_properties;
@@ -177,17 +190,22 @@ template <typename num_t> class waveform_x {
 		x.resize(_wave_length);
 	};
 	/* Methods */
-	void add_wave_properties(num_t amplitude, num_t offset, num_t frequency,
-							 num_t phase, WAVEFORM_FUNC_E function_type) {
-		wave_properties.push_back(
-			{amplitude, offset, frequency, phase, function_type});
+	/* duty_cycle, sweep_rate and delay are only used by some functions, see
+	 * wave_properties_*_t */
+	void add_wave_properties(math_t amplitude, math_t offset, math_t frequency,
+							 math_t phase, WAVEFORM_FUNC_E function_type,
+							 math_t duty_cycle = 0, math_t sweep_rate = 0,
+							 math_t delay = 0) {
+		wave_properties.push_back({amplitude, offset, frequency, phase,
+								   function_type, duty_cycle, sweep_rate,
+								   delay});
 	};
-	void gen_waveform(std::vector<num_t> &t) {
+	void gen_waveform(std::vector<math_t> &t) {
 		for (const auto &prop : wave_properties) {
 			traits::add_superposition(prop, t.data(), x.data(), wave_length);
 		}
 	};
-	void gen_spectrum(std::vector<num_t> &t, std::size_t length, uint32_t f_s,
+	void gen_spectrum(std::vector<math_t> &t, std::size_t length, uint32_t f_s,
 					  uint32_t num_steps, AMPLITUDE_SPECTRUM_E profile, num_t base_amplitude, num_t noise_variance,
 					  uint32_t seed) {
 		traits::gen_spectrum(t.data(), x.data(), length, f_s, num_steps,

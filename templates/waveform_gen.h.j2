@@ -10,20 +10,44 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 
+/* Floating point type the {{ type.name }} waveforms are generated in. The time and
+ * frequency buffers and the wave properties use it, and only the generated
+ * samples are {{ type.name }}
+{%- if type.fixed_point %}, rounded to the nearest integer and saturated.
+ * The precision is chosen when the sources are generated, see
+ * python scripts/generate_sources.py --help
+{%- endif %} */
+typedef {{ wave.type }} wave_math_{{ type.suffix }}_t;
+
 /* Struct type for initialising an individual superposition wave as part of a */
 /* full waveform. Multiple structs can be passed of any number 0 to 255 to */
 /* wave_settings_{{ type.suffix }}_t struct. They will all be added into the waveform when the */
 /* init_waveform_{{ type.suffix }}() function is called. */
 /* amplitude: Sets the superposition wave's amplitude */
 /* offset: Sets the superposition wave's DC offset */
-/* frequency: Sets the superposition wave's frequency */
-/* function_type: Sets the function to use for the superposition wave */
+/* frequency: Sets the superposition wave's frequency (the start frequency */
+/* for a chirp) */
+/* phase: Sets the superposition wave's phase, as a fraction of a period */
+/* function_type: Sets the function to use for the superposition wave, see */
+/* WAVEFORM_FUNC_E */
+/* The remaining members are only used by some functions, and can be left as */
+/* 0 for the others: */
+/* duty_cycle: FUNCTION_SQUARE, the fraction of each period that is high, */
+/* from 0 to 1. 0 selects 0.5, so a zero initialised struct gives a */
+/* symmetric square wave */
+/* sweep_rate: FUNCTION_CHIRP, the change in frequency per second (Hz/s), */
+/* negative for a falling sweep */
+/* delay: FUNCTION_IMPULSE and FUNCTION_STEP, the time of the impulse or step */
+/* in seconds */
 typedef struct {
-	{{ type.name }} amplitude;
-	{{ type.name }} offset;
-	{{ type.name }} frequency;
-	{{ type.name }} phase;
+	wave_math_{{ type.suffix }}_t amplitude;
+	wave_math_{{ type.suffix }}_t offset;
+	wave_math_{{ type.suffix }}_t frequency;
+	wave_math_{{ type.suffix }}_t phase;
 	WAVEFORM_FUNC_E function_type;
+	wave_math_{{ type.suffix }}_t duty_cycle;
+	wave_math_{{ type.suffix }}_t sweep_rate;
+	wave_math_{{ type.suffix }}_t delay;
 } wave_properties_{{ type.suffix }}_t;
 
 /* Struct type for initialising a full waveform as a collection of individual */
@@ -66,13 +90,13 @@ typedef struct {
 /* t: The buffer to set the time of */
 /* length: The length of the time buffer */
 /* sample_freq: The sampling frequency for the waveform */
-void gen_time_{{ type.suffix }}({{ type.name }} *t, uint32_t length, uint32_t sample_freq);
+void gen_time_{{ type.suffix }}(wave_math_{{ type.suffix }}_t *t, uint32_t length, uint32_t sample_freq);
 
 /* Function for generation frequency information */
 /* f: The buffer the frequencies are placed into */
 /* length: The length of the frequency buffer */
 /* sample_freq: The sampling frequency of the waveform */
-void gen_freq_{{ type.suffix }}({{ type.name }} *f, uint32_t length, uint32_t sample_freq);
+void gen_freq_{{ type.suffix }}(wave_math_{{ type.suffix }}_t *f, uint32_t length, uint32_t sample_freq);
 
 /* The following functions add sine and cosine waveforms to a pre-existing    */
 /* data buffer. This function is defined for use with purely real data.       */
@@ -80,9 +104,9 @@ void gen_freq_{{ type.suffix }}({{ type.name }} *f, uint32_t length, uint32_t sa
 /* x: The data buffer to add the sine/cosine wave to */
 /* wave_properties: The struct containing all desired properties for the */
 /* waveform to be added. */
-void add_sin_{{ type.suffix }}({{ type.name }} *t, {{ type.name }} *x, wave_properties_{{ type.suffix }}_t wave_properties,
+void add_sin_{{ type.suffix }}(const wave_math_{{ type.suffix }}_t *t, {{ type.name }} *x, wave_properties_{{ type.suffix }}_t wave_properties,
 			 uint32_t length);
-void add_cos_{{ type.suffix }}({{ type.name }} *t, {{ type.name }} *x, wave_properties_{{ type.suffix }}_t wave_properties,
+void add_cos_{{ type.suffix }}(const wave_math_{{ type.suffix }}_t *t, {{ type.name }} *x, wave_properties_{{ type.suffix }}_t wave_properties,
 			 uint32_t length);
 
 /* The following functions add sine and cosine waveforms to a pre-existing    */
@@ -93,14 +117,15 @@ void add_cos_{{ type.suffix }}({{ type.name }} *t, {{ type.name }} *x, wave_prop
 /* write_imag: Sets whether the function adds to the imaginary part */
 /* wave_properties: The struct containing all desired properties for the */
 /* waveform to be added. */
-void add_sin_complex_{{ type.suffix }}({{ type.name }} *t, complex_{{ type.suffix }}_t *x, bool write_real, bool write_imag,
+void add_sin_complex_{{ type.suffix }}(const wave_math_{{ type.suffix }}_t *t, complex_{{ type.suffix }}_t *x, bool write_real, bool write_imag,
 					 wave_properties_{{ type.suffix }}_t wave_properties, uint32_t length);
-void add_cos_complex_{{ type.suffix }}({{ type.name }} *t, complex_{{ type.suffix }}_t *x, bool write_real, bool write_imag,
+void add_cos_complex_{{ type.suffix }}(const wave_math_{{ type.suffix }}_t *t, complex_{{ type.suffix }}_t *x, bool write_real, bool write_imag,
 					 wave_properties_{{ type.suffix }}_t wave_properties, uint32_t length);
 
-/* The following functions act as look up tables to call the correct function
- * for adding a wave to the waveform based on the passed wave_properties object.
- */
+/* The following functions add the wave described by wave_properties to the
+ * waveform, for any of the functions in WAVEFORM_FUNC_E. FUNCTION_SINE and
+ * FUNCTION_COS call the add_sin/add_cos functions above. t must be in
+ * increasing order for FUNCTION_IMPULSE */
 /* wave_properties: The waveform characteristics struct */
 /* t: The t buffer storing time */
 /* x: The data buffer to add the sine/cosine wave to */
@@ -108,25 +133,33 @@ void add_cos_complex_{{ type.suffix }}({{ type.name }} *t, complex_{{ type.suffi
 /* Complex function only parameters: */
 /* write_real: Sets whether the function adds to the real part */
 /* write_imag: Sets whether the function adds to the imaginary part */
-void waveform_add_superposition_{{ type.suffix }}(wave_properties_{{ type.suffix }}_t wave_properties, {{ type.name }} *t,
+void waveform_add_superposition_{{ type.suffix }}(wave_properties_{{ type.suffix }}_t wave_properties, wave_math_{{ type.suffix }}_t *t,
 								{{ type.name }} *x, uint32_t data_length);
 void waveform_add_superposition_complex_{{ type.suffix }}(wave_properties_{{ type.suffix }}_t wave_properties,
-										{{ type.name }} *t, complex_{{ type.suffix }}_t *x, bool write_real,
+										wave_math_{{ type.suffix }}_t *t, complex_{{ type.suffix }}_t *x, bool write_real,
 										bool write_imag, uint32_t data_length);
 
+{%- if type.fixed_point %}
+/* Returns the sample x plus value, with value rounded to the nearest integer
+ * (halves away from zero) and the sum saturated to the range of {{ type.name }}.
+ * A NaN value adds nothing. All of the {{ type.name }} waveforms are added to their
+ * samples with this */
+{{ type.name }} waveform_add_sample_{{ type.suffix }}({{ type.name }} x, wave_math_{{ type.suffix }}_t value);
+
+{% endif -%}
 /* Initialises the waveform based on the pass wave_settings */
 /* wave_settings: Struct containing all of the wave settings required for */
 /* initialisation. */
 /* *t: pointer to the time array */
 /* *x: pointer to the waveform array */
-void init_waveform_{{ type.suffix }}(wave_settings_{{ type.suffix }}_t wave_settings, {{ type.name }} *t, {{ type.name }} *x);
+void init_waveform_{{ type.suffix }}(wave_settings_{{ type.suffix }}_t wave_settings, wave_math_{{ type.suffix }}_t *t, {{ type.name }} *x);
 
 /* Initialises a complex waveform based on the passed wave_settings */
 /* wave_settings: Struct containing all of the wave settings required for */
 /* initialisation. */
 /* *t: pointer to the time array */
 /* *t: pointer to the waveform array */
-void init_waveform_complex_{{ type.suffix }}(wave_settings_complex_{{ type.suffix }}_t wave_settings, {{ type.name }} *t,
+void init_waveform_complex_{{ type.suffix }}(wave_settings_complex_{{ type.suffix }}_t wave_settings, wave_math_{{ type.suffix }}_t *t,
 						   complex_{{ type.suffix }}_t *x);
 
 /* Post-processing functions */

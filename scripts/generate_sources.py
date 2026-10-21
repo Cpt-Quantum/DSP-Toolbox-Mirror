@@ -179,12 +179,32 @@ def fft_options(
     return options
 
 
+# Floating point types the waveforms can be generated in
+WAVE_MATH = {
+    "float": {"type": "float", "math_suffix": "f", "literal_suffix": "f"},
+    "double": {"type": "double", "math_suffix": "", "literal_suffix": ""},
+}
+# Default generation precision for the integer waveforms
+INT_WAVE_DEFAULT = {"int32": "float", "int64": "double"}
+
+
+def wave_options(int_precision: str = None) -> dict:
+    """Per type floating point type that the waveforms are generated in. The
+    floating point types use themselves, and the integer types use
+    int_precision, or INT_WAVE_DEFAULT when it is None"""
+    options = {"float": WAVE_MATH["float"], "double": WAVE_MATH["double"]}
+    for suffix, default in INT_WAVE_DEFAULT.items():
+        options[suffix] = WAVE_MATH[int_precision or default]
+    return options
+
+
 def generate(
     output_dir: str,
     templates: list,
     copy: dict = STDLIB_COPY,
     types: list = None,
     fft: dict = None,
+    wave: dict = None,
 ):
     # Templates are in the 'templates' directory
     env = Environment(loader=FileSystemLoader("templates"))
@@ -213,6 +233,7 @@ def generate(
                     type={**config, "acc_cast": acc_cast},
                     copy=copy,
                     fft=(fft or {}).get(config["suffix"]),
+                    wave=(wave or {}).get(config["suffix"]),
                 )
                 with open(output_path, "w") as f:
                     f.write(content)
@@ -253,6 +274,16 @@ if __name__ == "__main__":
         "--copy-header",
         metavar="HEADER",
         help="header declaring the --memcpy/--memmove functions",
+    )
+    wave_group = parser.add_argument_group("waveform generation")
+    wave_group.add_argument(
+        "--int-waveform-precision",
+        choices=["float", "double"],
+        help="floating point type the int32/int64 waveforms are generated in, "
+        "with only the output samples rounded to integers. The time buffer and "
+        "wave properties use it too (default: float for int32, double for "
+        "int64). double keeps int32 waveforms exact to the LSB at full scale, "
+        "float is faster on targets with only a single precision FPU",
     )
     fft_group = parser.add_argument_group("FFT")
     fft_group.add_argument(
@@ -297,7 +328,13 @@ if __name__ == "__main__":
             copy["memcpy"] or "built in loop", copy["memmove"] or "built in loop"
         )
     )
-    generate("inc", inc_templates)
+    wave = wave_options(args.int_waveform_precision)
+    print(
+        "Integer waveforms generated in: int32 -> {}, int64 -> {}".format(
+            wave["int32"]["type"], wave["int64"]["type"]
+        )
+    )
+    generate("inc", inc_templates, wave=wave)
     generate("filter", filter_templates, copy)
     generate("average", avg_templates)
     if args.fft_table_only:

@@ -4,83 +4,171 @@
 
 #include "complex_{{ type.suffix }}.h"
 #include "waveform_gen_{{ type.suffix }}.h"
+{#- Adds offset + value, both {{ wave.type }}, to the sample target. The integer
+    types round and saturate, the floating point types add directly #}
+{%- macro accumulate(target, offset, value) -%}
+{%- if type.fixed_point -%}
+{{ target }} = waveform_add_sample_{{ type.suffix }}({{ target }}, {{ offset }} + {{ value }})
+{%- else -%}
+{{ target }} = {{ target }} + {{ offset }} + {{ type.math_prefix }}({{ value }})
+{%- endif -%}
+{%- endmacro %}
+{%- if type.fixed_point %}
 
-void gen_time_{{ type.suffix }}({{ type.name }} *t, uint32_t length, uint32_t sample_freq) {
+{{ type.name }} waveform_add_sample_{{ type.suffix }}({{ type.name }} x, {{ wave.type }} value) {
+	const {{ wave.type }} rounded = round{{ wave.math_suffix }}(value);
+	if (isnan(rounded)) {
+		return x;
+	}
+{%- if type.name == "int32_t" %}
+	/* Limited to +/- 2^32 first, so the sum can't overflow int64_t */
+	int64_t sum = x;
+	if (rounded >= 4294967296.0{{ wave.literal_suffix }}) {
+		sum += INT64_C(4294967296);
+	} else if (rounded <= -4294967296.0{{ wave.literal_suffix }}) {
+		sum -= INT64_C(4294967296);
+	} else {
+		sum += (int64_t)rounded;
+	}
+	return sum > INT32_MAX ? INT32_MAX : sum < INT32_MIN ? INT32_MIN : (int32_t)sum;
+{%- else %}
+	/* 2^63 is exact in {{ wave.type }}, and the largest value that doesn't fit */
+	int64_t step;
+	if (rounded >= 9223372036854775808.0{{ wave.literal_suffix }}) {
+		step = INT64_MAX;
+	} else if (rounded < -9223372036854775808.0{{ wave.literal_suffix }}) {
+		step = INT64_MIN;
+	} else {
+		step = (int64_t)rounded;
+	}
+	if (step > 0 && x > INT64_MAX - step) {
+		return INT64_MAX;
+	}
+	if (step < 0 && x < INT64_MIN - step) {
+		return INT64_MIN;
+	}
+	return x + step;
+{%- endif %}
+}
+{%- endif %}
+
+void gen_time_{{ type.suffix }}({{ wave.type }} *t, uint32_t length, uint32_t sample_freq) {
 	for (uint32_t i = 0; i < length; i++) {
-		t[i] = (({{ type.name }})i) / sample_freq;
+		t[i] = (({{ wave.type }})i) / sample_freq;
 	}
 }
 
-void gen_freq_{{ type.suffix }}({{ type.name }} *f, uint32_t length, uint32_t sample_freq) {
+void gen_freq_{{ type.suffix }}({{ wave.type }} *f, uint32_t length, uint32_t sample_freq) {
 	for (uint32_t i = 0; i < length; i++) {
-		f[i] = ({{ type.name }})0.5{{ type.literal_suffix }} * (({{ type.name }})i) * sample_freq / length;
+		f[i] = ({{ wave.type }})0.5{{ wave.literal_suffix }} * (({{ wave.type }})i) * sample_freq / length;
 	}
 }
+{%- for func in ["sin", "cos"] %}
+{%- set angle = "6.28318530717958647692" ~ wave.literal_suffix ~ " * wave_properties.frequency * t[i] +\n\t\t\t\t\t\t6.28318530717958647692" ~ wave.literal_suffix ~ " * wave_properties.phase" %}
+{%- set value = "wave_properties.amplitude *\n\t\t\t\t   " ~ func ~ wave.math_suffix ~ "(" ~ angle ~ ")" %}
+{%- if loop.first %}
 
 /* Real valued function variants */
-void add_sin_{{ type.suffix }}({{ type.name }} *t, {{ type.name }} *x, wave_properties_{{ type.suffix }}_t wave_properties,
+{%- endif %}
+void add_{{ func }}_{{ type.suffix }}(const {{ wave.type }} *t, {{ type.name }} *x, wave_properties_{{ type.suffix }}_t wave_properties,
 			 uint32_t length) {
 	for (uint32_t i = 0; i < length; i++) {
-		x[i] = x[i] + wave_properties.offset +
-			   {{ type.math_prefix }}(wave_properties.amplitude *
-				   sin{{ type.math_suffix }}(6.28318530717958647692{{ type.literal_suffix }} * wave_properties.frequency * t[i] +
-						6.28318530717958647692{{ type.literal_suffix }} * wave_properties.phase));
+		{{ accumulate("x[i]", "wave_properties.offset", value) }};
 	}
 }
-
-void add_cos_{{ type.suffix }}({{ type.name }} *t, {{ type.name }} *x, wave_properties_{{ type.suffix }}_t wave_properties,
-			 uint32_t length) {
-	for (uint32_t i = 0; i < length; i++) {
-		x[i] = x[i] + wave_properties.offset +
-			   {{ type.math_prefix }}(wave_properties.amplitude *
-				   cos{{ type.math_suffix }}(6.28318530717958647692{{ type.literal_suffix }} * wave_properties.frequency * t[i] +
-						6.28318530717958647692{{ type.literal_suffix }} * wave_properties.phase));
-	}
-}
+{%- endfor %}
+{%- for func in ["sin", "cos"] %}
+{%- set angle = "6.28318530717958647692" ~ wave.literal_suffix ~ " * wave_properties.frequency * t[i] +\n\t\t\t\t\t\t\t 6.28318530717958647692" ~ wave.literal_suffix ~ " * wave_properties.phase" %}
+{%- set value = "wave_properties.amplitude *\n\t\t\t\t\t\t" ~ func ~ wave.math_suffix ~ "(" ~ angle ~ ")" %}
+{%- if loop.first %}
 
 /* Complex valued function variants */
-void add_sin_complex_{{ type.suffix }}({{ type.name }} *t, complex_{{ type.suffix }}_t *x, bool write_real, bool write_imag,
+{%- endif %}
+void add_{{ func }}_complex_{{ type.suffix }}(const {{ wave.type }} *t, complex_{{ type.suffix }}_t *x, bool write_real, bool write_imag,
 					 wave_properties_{{ type.suffix }}_t wave_properties, uint32_t length) {
 	if (write_real) {
 		for (uint32_t i = 0; i < length; i++) {
-			x[i].real = x[i].real + wave_properties.offset +
-						{{ type.math_prefix }}(wave_properties.amplitude *
-							sin{{ type.math_suffix }}(6.28318530717958647692{{ type.literal_suffix }} * wave_properties.frequency * t[i] +
-								 6.28318530717958647692{{ type.literal_suffix }} * wave_properties.phase));
+			{{ accumulate("x[i].real", "wave_properties.offset", value) }};
 		}
 	}
 	if (write_imag) {
 		for (uint32_t i = 0; i < length; i++) {
-			x[i].imag = x[i].imag + wave_properties.offset +
-						{{ type.math_prefix }}(wave_properties.amplitude *
-							sin{{ type.math_suffix }}(6.28318530717958647692{{ type.literal_suffix }} * wave_properties.frequency * t[i] +
-								 6.28318530717958647692{{ type.literal_suffix }} * wave_properties.phase));
+			{{ accumulate("x[i].imag", "wave_properties.offset", value) }};
 		}
 	}
 }
+{%- endfor %}
 
-void add_cos_complex_{{ type.suffix }}({{ type.name }} *t, complex_{{ type.suffix }}_t *x, bool write_real, bool write_imag,
-					 wave_properties_{{ type.suffix }}_t wave_properties, uint32_t length) {
-	if (write_real) {
-		for (uint32_t i = 0; i < length; i++) {
-			x[i].real = x[i].real + wave_properties.offset +
-						{{ type.math_prefix }}(wave_properties.amplitude *
-							cos{{ type.math_suffix }}(6.28318530717958647692{{ type.literal_suffix }} * wave_properties.frequency * t[i] +
-								 6.28318530717958647692{{ type.literal_suffix }} * wave_properties.phase));
-		}
+/* Fraction of the way through the current period, from 0 up to 1. The
+ * subtraction can round up to 1 for small negative cycles, which is the start
+ * of the next period */
+static {{ wave.type }} wave_period_fraction_{{ type.suffix }}({{ wave.type }} cycles) {
+	const {{ wave.type }} fraction = cycles - floor{{ wave.math_suffix }}(cycles);
+	return fraction < 1.0{{ wave.literal_suffix }} ? fraction : 0.0{{ wave.literal_suffix }};
+}
+
+/* Sample i of the non sinusoidal functions, before the amplitude and offset
+ * are applied. t must be in increasing order for FUNCTION_IMPULSE, which is
+ * at the first sample at or after the delay */
+static {{ wave.type }} wave_shape_{{ type.suffix }}(const wave_properties_{{ type.suffix }}_t *wave, const {{ wave.type }} *t, uint32_t i) {
+	const {{ wave.type }} time = t[i];
+	const {{ wave.type }} frequency = wave->frequency;
+	const {{ wave.type }} phase = wave->phase;
+	const {{ wave.type }} delay = wave->delay;
+
+	switch (wave->function_type) {
+	case FUNCTION_SQUARE: {
+		const {{ wave.type }} duty = wave->duty_cycle == 0 ? 0.5{{ wave.literal_suffix }} : wave->duty_cycle;
+		const {{ wave.type }} fraction = wave_period_fraction_{{ type.suffix }}(frequency * time + phase);
+		return fraction < duty ? 1.0{{ wave.literal_suffix }} : -1.0{{ wave.literal_suffix }};
 	}
-	if (write_imag) {
-		for (uint32_t i = 0; i < length; i++) {
-			x[i].imag = x[i].imag + wave_properties.offset +
-						{{ type.math_prefix }}(wave_properties.amplitude *
-							cos{{ type.math_suffix }}(6.28318530717958647692{{ type.literal_suffix }} * wave_properties.frequency * t[i] +
-								 6.28318530717958647692{{ type.literal_suffix }} * wave_properties.phase));
+	case FUNCTION_TRIANGLE: {
+		const {{ wave.type }} fraction = wave_period_fraction_{{ type.suffix }}(frequency * time + phase);
+		return fraction < 0.5{{ wave.literal_suffix }} ? 4.0{{ wave.literal_suffix }} * fraction - 1.0{{ wave.literal_suffix }} : 3.0{{ wave.literal_suffix }} - 4.0{{ wave.literal_suffix }} * fraction;
+	}
+	case FUNCTION_SAWTOOTH:
+		return 2.0{{ wave.literal_suffix }} * wave_period_fraction_{{ type.suffix }}(frequency * time + phase) - 1.0{{ wave.literal_suffix }};
+	case FUNCTION_CHIRP: {
+		/* Reduced to one period first, so the angle stays accurate as the
+		 * number of cycles grows */
+		const {{ wave.type }} cycles = frequency * time + 0.5{{ wave.literal_suffix }} * wave->sweep_rate * time * time + phase;
+		return cos{{ wave.math_suffix }}(6.28318530717958647692{{ wave.literal_suffix }} * wave_period_fraction_{{ type.suffix }}(cycles));
+	}
+	case FUNCTION_IMPULSE:
+		return time >= delay && (i == 0 || t[i - 1] < delay) ? 1.0{{ wave.literal_suffix }} : 0.0{{ wave.literal_suffix }};
+	case FUNCTION_STEP:
+		return time >= delay ? 1.0{{ wave.literal_suffix }} : 0.0{{ wave.literal_suffix }};
+	default:
+		return 0.0{{ wave.literal_suffix }};
+	}
+}
+
+/* Adds one of the non sinusoidal functions to a real waveform */
+static void add_shape_{{ type.suffix }}(const wave_properties_{{ type.suffix }}_t *wave, const {{ wave.type }} *t, {{ type.name }} *x,
+							uint32_t length) {
+	for (uint32_t i = 0; i < length; i++) {
+		{{ accumulate("x[i]", "wave->offset", "wave->amplitude * wave_shape_" ~ type.suffix ~ "(wave, t, i)") }};
+	}
+}
+
+/* Adds one of the non sinusoidal functions to the real and/or imaginary
+ * parts of a complex waveform */
+static void add_shape_complex_{{ type.suffix }}(const wave_properties_{{ type.suffix }}_t *wave, const {{ wave.type }} *t,
+									complex_{{ type.suffix }}_t *x, bool write_real, bool write_imag,
+									uint32_t length) {
+	for (uint32_t i = 0; i < length; i++) {
+		const {{ wave.type }} value = wave->amplitude * wave_shape_{{ type.suffix }}(wave, t, i);
+		if (write_real) {
+			{{ accumulate("x[i].real", "wave->offset", "value") }};
+		}
+		if (write_imag) {
+			{{ accumulate("x[i].imag", "wave->offset", "value") }};
 		}
 	}
 }
 
 void waveform_add_superposition_{{ type.suffix }}(wave_properties_{{ type.suffix }}_t wave_properties,
-									   {{ type.name }} *t, {{ type.name }} *x,
+									   {{ wave.type }} *t, {{ type.name }} *x,
 									   uint32_t data_length) {
 	switch (wave_properties.function_type) {
 	case FUNCTION_SINE:
@@ -89,12 +177,20 @@ void waveform_add_superposition_{{ type.suffix }}(wave_properties_{{ type.suffix
 	case FUNCTION_COS:
 		add_cos_{{ type.suffix }}(t, x, wave_properties, data_length);
 		break;
+	case FUNCTION_SQUARE:
+	case FUNCTION_TRIANGLE:
+	case FUNCTION_SAWTOOTH:
+	case FUNCTION_CHIRP:
+	case FUNCTION_IMPULSE:
+	case FUNCTION_STEP:
+		add_shape_{{ type.suffix }}(&wave_properties, t, x, data_length);
+		break;
 	default:
 		break;
 	}
 }
 
-void waveform_add_superposition_complex_{{ type.suffix }}(wave_properties_{{ type.suffix }}_t wave_properties, {{ type.name }} *t,
+void waveform_add_superposition_complex_{{ type.suffix }}(wave_properties_{{ type.suffix }}_t wave_properties, {{ wave.type }} *t,
 								   complex_{{ type.suffix }}_t *x, bool write_real,
 								   bool write_imag, uint32_t data_length) {
 	switch (wave_properties.function_type) {
@@ -106,12 +202,20 @@ void waveform_add_superposition_complex_{{ type.suffix }}(wave_properties_{{ typ
 		add_cos_complex_{{ type.suffix }}(t, x, write_real, write_imag, wave_properties,
 						data_length);
 		break;
+	case FUNCTION_SQUARE:
+	case FUNCTION_TRIANGLE:
+	case FUNCTION_SAWTOOTH:
+	case FUNCTION_CHIRP:
+	case FUNCTION_IMPULSE:
+	case FUNCTION_STEP:
+		add_shape_complex_{{ type.suffix }}(&wave_properties, t, x, write_real, write_imag, data_length);
+		break;
 	default:
 		break;
 	}
 }
 
-void init_waveform_{{ type.suffix }}(wave_settings_{{ type.suffix }}_t wave_settings, {{ type.name }} *t, {{ type.name }} *x) {
+void init_waveform_{{ type.suffix }}(wave_settings_{{ type.suffix }}_t wave_settings, {{ wave.type }} *t, {{ type.name }} *x) {
 	/* Generate the time according to settings first */
 	gen_time_{{ type.suffix }}(t, wave_settings.data_length, wave_settings.fs);
 	/* Now generate the main waveform */
@@ -125,7 +229,7 @@ void init_waveform_{{ type.suffix }}(wave_settings_{{ type.suffix }}_t wave_sett
 	}
 }
 
-void init_waveform_complex_{{ type.suffix }}(wave_settings_complex_{{ type.suffix }}_t wave_settings, {{ type.name }} *t,
+void init_waveform_complex_{{ type.suffix }}(wave_settings_complex_{{ type.suffix }}_t wave_settings, {{ wave.type }} *t,
 						   complex_{{ type.suffix }}_t *x) {
 	/* Generate the time according to settings first */
 	gen_time_{{ type.suffix }}(t, wave_settings.data_length, wave_settings.fs);
