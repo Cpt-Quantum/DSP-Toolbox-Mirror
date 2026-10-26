@@ -6,6 +6,7 @@
 
 #include "cpp_wrapper_average.h"
 #include "cpp_wrapper_complex.h"
+#include "cpp_wrapper_fft.h"
 #include "cpp_wrapper_filter.h"
 #include "cpp_wrapper_waveform.h"
 

@@ -9,6 +9,8 @@ All wrapper classes are templates that support the following numerical types (`n
 * `int32_t`
 * `int64_t`
 
+The FFT classes are only generated for `float` and `double`.
+
 ---
 
 ## Table of Contents
@@ -21,6 +23,7 @@ All wrapper classes are templates that support the following numerical types (`n
 * [IIR Filters (SOS/Biquad) (`iir_sos`)](#iir-filters-sosbiquad-iir_sos)
 * [Averaging (`average`, `power_average`, `moving_avg`)](#averaging-average-power_average-moving_avg)
 * [Complex Math (`complex_t`, `polar_t`, `complex_*`)](#complex-math-complex_t-polar_t-complex_)
+* [FFT (`fft`, `rfft`, `dft`)](#fft-fft-rfft-dft)
 * [JSON Parsing (`json_filter_parse`)](#json-parsing-json_filter_parse)
 * [Copying Filters (Multi-channel and Multi-threaded Use)](#copying-filters-multi-channel-and-multi-threaded-use)
 
@@ -34,6 +37,7 @@ Each module has its own header, and `cpp_wrapper.h` includes all of them. Includ
 |---|---|---|
 | `cpp_wrapper_average.h` | `average`, `power_average`, `moving_avg` | `CPP_WRAPPER_AVERAGE_SRC` |
 | `cpp_wrapper_complex.h` | `complex_t`, `polar_t`, the `complex_*` functions and operators | `CPP_WRAPPER_COMPLEX_SRC` |
+| `cpp_wrapper_fft.h` | `fft`, `rfft`, `dft` | `CPP_WRAPPER_FFT_SRC` |
 | `cpp_wrapper_filter.h` | `json_filter_parse`, `fir`, `iir_ba`, `iir_sos` | `CPP_WRAPPER_FILTER_SRC` |
 | `cpp_wrapper_waveform.h` | `waveform_t`, `waveform_x`, `nco` | `CPP_WRAPPER_WAVEFORM_SRC` |
 | `cpp_wrapper.h` | All of the above | `CPP_WRAPPER_SRC` |
@@ -221,6 +225,77 @@ See `examples/complex`, which mixes a complex tone down in frequency in float an
 
 ---
 
+## FFT (`fft`, `rfft`, `dft`)
+
+Header: `cpp_wrapper_fft.h`
+
+Wrappers for the radix-2 transforms in the [C API reference](../API_REFERENCE.md#fft), for `float` and `double` only. The transform size `n` is a power of two of at least 2. The forward transforms are unscaled and the inverses are scaled by `1 / n`, matching `numpy.fft`, with the output in natural order. `complex_t` is the C complex struct for `num_t`, the same type as `complex_t<num_t>` in `cpp_wrapper_complex.h`, and is also available as `fft<num_t>::complex_type`.
+
+The plan initialisations available depend on the [generation options](../API_REFERENCE.md#generation-options-twiddles):
+
+| Generated with | `fft(n)` / `rfft(n)` | Caller's workspace | `from_table(n)` | `dft` |
+|---|---|---|---|---|
+| *(default)* | Owned workspace | Yes | No | Yes |
+| `--fft-twiddle-table MAX_N` | Owned workspace | Yes | Yes | Yes |
+| `--fft-twiddle-table MAX_N --fft-table-only` | The generated table | No | Yes | No |
+
+The members that aren't generated are left out, so using them is a compile error.
+
+### Complex FFT (`fft`)
+
+#### Constructors
+
+* `fft(uint32_t n)`: Plans `n` point transforms, with the twiddle workspace owned by the object (from the table with `--fft-table-only`).
+* `fft(uint32_t n, void *work, size_t work_bytes)`: Uses the caller's workspace, which must outlive the object and its copies. `static size_t workspace_size(uint32_t n)` gives the bytes needed, 0 if `n` is invalid.
+* `static fft from_table(uint32_t n)`: *(`--fft-twiddle-table` only)* Plans from the generated `const` table, with no workspace, for `n` up to `fft<num_t>::table_max_n`.
+
+All of them throw `std::invalid_argument` with the reason for any `FFT_STATUS_E` error.
+
+#### Methods
+
+* `void forward(std::vector<complex_t> &x) const`, `void inverse(std::vector<complex_t> &x) const`: In place transforms. Throw `std::invalid_argument` if `x` doesn't hold `size()` values.
+* `void forward(const std::vector<complex_t> &x, std::vector<complex_t> &out) const`, and the same for `inverse`: Out of place, with `out` resized to `size()`. `out` may be the same vector as `x`.
+* `void forward(complex_t *x) const`, `void inverse(complex_t *x) const`: Pointer overloads, for transforming at an offset within a larger buffer. `x` must hold `size()` values.
+* `uint32_t size() const`: The transform size.
+* `const plan_t &get_plan() const`: The C plan (`fft_plan_{{suffix}}_t`), for calling the C functions directly.
+
+### Real FFT (`rfft`)
+
+The transforms of `n` real samples, about half the work of `fft` for the same `n`. The constructors, `workspace_size`, `from_table`, `table_max_n`, `size()` and `get_plan()` are the same as for `fft`, with `get_plan()` giving an `rfft_plan_{{suffix}}_t`.
+
+#### Methods
+
+* `void forward(std::vector<num_t> &x) const`, `void inverse(std::vector<num_t> &x) const`: In place, in the packed layout of the [real input transform](../API_REFERENCE.md#real-input-transform) (`x[0]` bin 0, `x[1]` bin `n / 2`, then the real and imaginary parts of bins 1 to `n / 2 - 1`). Throw `std::invalid_argument` if `x` doesn't hold `size()` values.
+* `void forward(const std::vector<num_t> &x, std::vector<complex_t> &bins) const`: Bins 0 to `n / 2`, unpacked into `bins`, which is resized to `n / 2 + 1`. The same as `numpy.fft.rfft`.
+* `void inverse(const std::vector<complex_t> &bins, std::vector<num_t> &x) const`: The `n` real samples from the `n / 2 + 1` unpacked bins, with `x` resized to `n`. The imaginary parts of bins 0 and `n / 2` are taken as 0, as `numpy.fft.irfft` does. Throws `std::invalid_argument` if `bins` doesn't hold `n / 2 + 1` values.
+* `void forward(num_t *x) const`, `void inverse(num_t *x) const`: Pointer overloads of the packed transforms.
+* `void forward(const num_t *x, complex_t *bins) const`, `void inverse(const complex_t *bins, num_t *x) const`: Pointer overloads of the unpacked transforms. `x` holds `n` values and `bins` `n / 2 + 1`, and they must not overlap.
+
+### DFT (`dft`)
+
+* `void dft(const std::vector<C> &x, std::vector<C> &out)`: Direct O(N²) DFT of any length, as a slow reference. `C` is `complex_t<float>` or `complex_t<double>`, deduced from the arguments. `out` is resized to the length of `x`, and must be a different vector (throws `std::invalid_argument` if not).
+* `void dft(const C *data_in, C *data_out, uint32_t length)`: Pointer overload, the buffers must not overlap.
+
+### Copies and threads
+
+The twiddles are read only after the plan is initialised, so copies of an `fft` or `rfft` share them, including an owned workspace, which lives until the last copy is destroyed. The transform methods are `const`, so one object can be used by several threads at once, as long as each transforms a different buffer.
+
+```cpp
+fft<float> plan(1024);
+std::vector<complex_t<float>> x(1024);
+plan.forward(x);
+plan.inverse(x);
+
+rfft<float> rplan(1024);
+std::vector<float> samples(1024);
+std::vector<complex_t<float>> bins;
+rplan.forward(samples, bins); /* bins 0 to 512 */
+```
+
+See `examples/fft`, which takes the real FFT of a generated signal with `rfft<float>` and plots its spectrum against `numpy.fft.rfft`. `examples/multithread` also benchmarks `rfft` across several threads, sharing one plan between the channels.
+
+---
+
 ## JSON Parsing (`json_filter_parse`)
 
 Header: `cpp_wrapper_filter.h`
@@ -253,4 +328,4 @@ Because the only shared data is read-only, different copies can be run on differ
 
 ## Implementation Details
 
-The C++ wrappers utilize **Traits** to map template types to the correct C function calls (e.g., `fir_traits<float>` calls `fir_filter_float`). Each header follows the same layout: the C headers, the standard headers, then a `<module>_traits<num_t>` struct with float, double, int32_t and int64_t specializations in that order, then the public classes and functions. All memory management for C-allocated arrays is handled via custom deleters in `std::unique_ptr` or through `std::vector` for high-level data.
+The C++ wrappers utilize **Traits** to map template types to the correct C function calls (e.g., `fir_traits<float>` calls `fir_filter_float`). Each header follows the same layout: the C headers, the standard headers, then a `<module>_traits<num_t>` struct with float, double, int32_t and int64_t specializations in that order (float and double only for `fft_traits`), then the public classes and functions. All memory management for C-allocated arrays is handled via custom deleters in `std::unique_ptr` or through `std::vector` for high-level data.

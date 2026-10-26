@@ -15,6 +15,8 @@ def main():
     parser.add_argument('--fir', type=str, required=True)
     parser.add_argument('--iir-sos', type=str, required=True)
     parser.add_argument('--iir-ba', type=str, required=True)
+    parser.add_argument('--fft', type=str, required=True)
+    parser.add_argument('--fft-size', type=int, required=True)
     parser.add_argument('--channel', type=int, default=0, help='Channel to plot')
     args = parser.parse_args()
 
@@ -29,6 +31,13 @@ def main():
     y_sos = load_channel(args.iir_sos)
     y_ba = load_channel(args.iir_ba)
 
+    # The FFT output is the bins of each block of the channel, interleaved
+    # real and imaginary
+    # Format: [Blocks, Channels, Bins]
+    n_bins = args.fft_size // 2 + 1
+    raw_fft = np.fromfile(args.fft, dtype=np.float32).view(np.complex64)
+    fft_bins = raw_fft.reshape(-1, args.channels, n_bins)[:, args.channel, :]
+
     # Load the filter designs
     with open(args.filters) as f:
         filters = json.load(f)
@@ -36,7 +45,7 @@ def main():
     iir_sos = np.array(filters['iir_sos']['sections'])
     iir_ba = (np.array(filters['iir_ba']['b']), np.array(filters['iir_ba']['a']))
 
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 9))
+    fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(10, 12))
 
     # Designed frequency responses
     w, h_fir = signal.freqz(fir_b, 1, worN=4096, fs=args.fs)
@@ -72,6 +81,15 @@ def main():
     ax3.set_title(f'Channel {args.channel} time domain')
     ax3.set_xlabel('Time (s)')
     ax3.legend()
+
+    # Amplitude spectrum of the input from the FFT, averaged over the blocks
+    f_fft = np.fft.rfftfreq(args.fft_size, d=1.0 / args.fs)
+    amplitude = np.abs(fft_bins).mean(axis=0) * 2.0 / args.fft_size
+    ax4.plot(f_fft, 20 * np.log10(np.maximum(amplitude, 1e-12)))
+    ax4.set_title(f'Channel {args.channel} input amplitude spectrum, mean of '
+                  f'{fft_bins.shape[0]} {args.fft_size} point FFTs')
+    ax4.set_xlabel('Frequency (Hz)')
+    ax4.set_ylabel('Amplitude (dB)')
 
     plt.tight_layout()
     plt.show()
