@@ -29,6 +29,8 @@ This generates the sources and builds `build/libdsptoolbox.a`. Link it after
 your own sources, with `-lm` if you use any of the modules that need the maths
 library. Running `make` again regenerates the sources when a template, the
 generator or the generation options change, and only recompiles what changed.
+`make shared` builds the same modules as a shared library,
+`build/libdsptoolbox.so`, from position independent copies of the objects.
 `make examples` also builds every C and C++ example against the library, and
 `make clean` removes the `build/` directory.
 
@@ -37,9 +39,10 @@ The build is set up with variables on the command line:
 | Variable | Default | Description |
 | :--- | :--- | :--- |
 | `GEN_ARGS` | *(none)* | Options for `scripts/generate_sources.py`, see `python scripts/generate_sources.py --help` and the [C API documentation](API_REFERENCE.md#generation-options-copy-functions) |
-| `CC`, `AR`, `CFLAGS` | `cc`, `ar`, `-Wall -O2` | The compiler, archiver and flags, e.g. for cross compiling |
+| `CC`, `AR`, `CFLAGS` | `cc`, `ar`, `-Wall -O3` | The compiler, archiver and flags, e.g. for cross compiling |
 | `JSON` | `1` | Set to `0` to leave out the JSON filter loading and cJSON, which need the C standard library |
-| `BUILD_DIR` | `build` | Where the objects and library go |
+| `BUILD_DIR` | `build` | Where the objects and libraries go |
+| `LDFLAGS` | *(none)* | Extra flags for linking the shared library |
 
 For example, for a Cortex-M4F without a C standard library, with a const FFT
 twiddle table and no maths library in the FFT:
@@ -90,7 +93,9 @@ license from that project is included in that folder to avoid confusion.
 To make maintenance of the C implementations more easy, a lot of code is
 generated from jinja2 templates. This allows support for multiple C types
 without having to manually copy-paste similarities between different C functions
-that just need to handle different types.
+that just need to handle different types. The C++ wrapper traits, which map each
+type to its C structs and functions, are generated from the same templates
+directory into `cpp_bindings/cpp_traits_<module>.h`.
 
 # Octave
 

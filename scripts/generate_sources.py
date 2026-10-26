@@ -86,6 +86,16 @@ fft_templates = [
 ]
 # The FFT is only generated for the floating point types
 FFT_TYPES = ["float", "double"]
+# The C++ wrapper traits, which map each type to its C structs and functions.
+# Each header covers every type of its module, with the module's types (None
+# for all of them)
+cpp_traits_templates = [
+    ("cpp_traits_average.h.j2", "cpp_traits_average.h", None),
+    ("cpp_traits_complex.h.j2", "cpp_traits_complex.h", None),
+    ("cpp_traits_fft.h.j2", "cpp_traits_fft.h", FFT_TYPES),
+    ("cpp_traits_filter.h.j2", "cpp_traits_filter.h", None),
+    ("cpp_traits_waveform.h.j2", "cpp_traits_waveform.h", None),
+]
 
 
 # Functions used by the filters to copy into, and shift, their history buffers.
@@ -278,46 +288,84 @@ def generate(
     written and the number of templates that failed"""
     written = []
     failures = 0
-    # Templates are in the 'templates' directory
-    env = Environment(loader=FileSystemLoader("templates"))
+    for config in type_configs(types):
+        for template_name, output_pattern in templates:
+            output_name = output_pattern.format(type=config["suffix"])
+            ok = render(
+                template_name,
+                os.path.join(output_dir, output_name),
+                type=config,
+                copy=copy,
+                fft=(fft or {}).get(config["suffix"]),
+                wave=(wave or {}).get(config["suffix"]),
+                nco=(nco or {}).get(config["suffix"]),
+            )
+            if ok:
+                written.append(os.path.join(output_dir, output_name))
+            else:
+                failures += 1
+    return written, failures
 
-    # Ensure we are in the project root (assuming script is run from there)
-    # or handle paths relative to this script
 
+def generate_cpp_traits(
+    output_dir: str, templates: list, fft: dict = None, wave: dict = None, nco: dict = None
+) -> tuple:
+    """Render the C++ traits templates into output_dir, each covering every
+    type of its module, returning the paths written and the number of
+    templates that failed. The options are per type, keyed by suffix"""
+    written = []
+    failures = 0
+    for template_name, output_name, types in templates:
+        output_path = os.path.join(output_dir, output_name)
+        if render(
+            template_name,
+            output_path,
+            types=type_configs(types),
+            fft=fft or {},
+            wave=wave or {},
+            nco=nco or {},
+        ):
+            written.append(output_path)
+        else:
+            failures += 1
+    return written, failures
+
+
+def type_configs(types: list = None) -> list:
+    """The configs of the types with their suffix in types (all of them for
+    None), with the values derived from them added"""
+    configs = []
     for config in types_config:
         if types is not None and config["suffix"] not in types:
             continue
-        for template_name, output_pattern in templates:
-            try:
-                template = env.get_template(template_name)
-                output_name = output_pattern.format(type=config["suffix"])
-                output_path = os.path.join(output_dir, output_name)
+        # Cast to widen the filter products into the accumulator, empty when
+        # they are the same type
+        acc_cast = (
+            f"({config['acc_type']})" if config["acc_type"] != config["name"] else ""
+        )
+        configs.append({**config, "acc_cast": acc_cast})
+    return configs
 
-                print(f"Generating {output_path}...")
-                # Cast to widen the filter products into the accumulator,
-                # empty when they are the same type
-                acc_cast = (
-                    f"({config['acc_type']})"
-                    if config["acc_type"] != config["name"]
-                    else ""
-                )
-                content = template.render(
-                    type={**config, "acc_cast": acc_cast},
-                    copy=copy,
-                    fft=(fft or {}).get(config["suffix"]),
-                    wave=(wave or {}).get(config["suffix"]),
-                    nco=(nco or {}).get(config["suffix"]),
-                )
-                # Unchanged files are left alone, so the build only recompiles
-                # what changed
-                if read_file(output_path) != content:
-                    with open(output_path, "w") as f:
-                        f.write(content)
-                written.append(output_path)
-            except Exception as e:
-                print(f"Error generating {output_name}: {e}")
-                failures += 1
-    return written, failures
+
+# Templates are in the 'templates' directory, relative to the project root the
+# script is run from
+env = Environment(loader=FileSystemLoader("templates"))
+
+
+def render(template_name: str, output_path: str, **context) -> bool:
+    """Render a template to output_path, returning False if it failed"""
+    try:
+        print(f"Generating {output_path}...")
+        content = env.get_template(template_name).render(**context)
+        # Unchanged files are left alone, so the build only recompiles what
+        # changed
+        if read_file(output_path) != content:
+            with open(output_path, "w") as f:
+                f.write(content)
+        return True
+    except Exception as e:
+        print(f"Error generating {output_path}: {e}")
+        return False
 
 
 def read_file(path: str):
@@ -500,14 +548,11 @@ if __name__ == "__main__":
         print(f"Float FFT twiddles: {args.fft_twiddle_precision}")
         if table_size is not None:
             print(f"FFT twiddle table: up to {table_size} points")
+    fft = fft_options(args.fft_twiddle_precision, table_size, args.fft_table_only)
+    results.append(generate("fft", fft_templates, types=FFT_TYPES, fft=fft))
     results.append(
-        generate(
-            "fft",
-            fft_templates,
-            types=FFT_TYPES,
-            fft=fft_options(
-                args.fft_twiddle_precision, table_size, args.fft_table_only
-            ),
+        generate_cpp_traits(
+            "cpp_bindings", cpp_traits_templates, fft=fft, wave=wave, nco=nco
         )
     )
 

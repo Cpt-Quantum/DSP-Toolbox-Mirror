@@ -1,6 +1,7 @@
 # Top level build for the DSP toolbox
 #
 # make                 Generates the C sources and builds build/libdsptoolbox.a
+# make shared          Builds the shared library build/libdsptoolbox.so
 # make generate        Only generates the C sources
 # make examples        Builds the C and C++ examples against the library
 # make clean           Removes the build directory
@@ -19,12 +20,15 @@ GEN_ARGS ?=
 # Include the JSON filter loading (json_to_filt_*) and cJSON, which need the C
 # standard library. Set to 0 for targets without one
 JSON ?= 1
-CFLAGS ?= -Wall -O2
+CFLAGS ?= -Wall -O3
 PYTHON ?= python3
 BUILD_DIR ?= build
 
 LIB = $(BUILD_DIR)/libdsptoolbox.a
 OBJ_DIR = $(BUILD_DIR)/obj
+# The shared library, built from position independent copies of the objects
+SHARED_LIB = $(BUILD_DIR)/libdsptoolbox.so
+PIC_OBJ_DIR = $(BUILD_DIR)/obj_pic
 GENERATOR = scripts/generate_sources.py
 TEMPLATES = $(wildcard templates/*.j2)
 # The generated .c files, written by the generator as GENERATED_SRC
@@ -55,6 +59,7 @@ else
 LIB_SRC := $(filter-out filter/json_to_filt_%.c,$(LIB_SRC))
 endif
 LIB_OBJ = $(LIB_SRC:%.c=$(OBJ_DIR)/%.o)
+LIB_PIC_OBJ = $(LIB_SRC:%.c=$(PIC_OBJ_DIR)/%.o)
 
 # Only touched when GEN_ARGS changes, so it is otherwise older than the manifest
 $(GEN_ARGS_FILE): FORCE
@@ -72,11 +77,22 @@ $(OBJ_DIR)/%.o: %.c | $(MANIFEST)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
+$(PIC_OBJ_DIR)/%.o: %.c | $(MANIFEST)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -fPIC -MMD -MP -c $< -o $@
+
 $(LIB): $(LIB_OBJ)
 	rm -f $@
 	$(AR) rcs $@ $^
 
+# Programs linked against the library by path record the soname, so they find
+# it through their rpath or LD_LIBRARY_PATH
+$(SHARED_LIB): $(LIB_PIC_OBJ)
+	$(CC) -shared -Wl,-soname,$(@F) $(LDFLAGS) $^ -o $@ -lm
+
 lib: $(LIB)
+
+shared: $(SHARED_LIB)
 
 examples: lib
 	for ex in $(C_EXAMPLES); do $(MAKE) -C $$ex $$ex || exit 1; done
@@ -87,8 +103,8 @@ examples: lib
 clean:
 	rm -rf $(BUILD_DIR)
 
--include $(LIB_OBJ:.o=.d)
+-include $(LIB_OBJ:.o=.d) $(LIB_PIC_OBJ:.o=.d)
 
 FORCE:
 
-.PHONY: all generate lib examples clean FORCE
+.PHONY: all generate lib shared examples clean FORCE

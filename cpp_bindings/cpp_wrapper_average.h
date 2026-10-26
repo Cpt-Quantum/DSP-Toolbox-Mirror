@@ -3,111 +3,11 @@
 
 /* C++ wrapper for averaging (average, power_average, moving_avg) */
 
-#include "../average/avg_double.h"
-#include "../average/avg_float.h"
-#include "../average/avg_int32.h"
-#include "../average/avg_int64.h"
+#include "cpp_traits_average.h"
 
 #include <cstdint>
 #include <stdexcept>
 #include <vector>
-
-/* Map the numerical type (float/double/int32_t/int64_t) to struct and
- * function types for averaging */
-template <typename num_t> struct avg_traits;
-/* Float Specialization */
-template <> struct avg_traits<float> {
-	using struct_type = moving_avg_float_t;
-	using power_type = float;
-
-	static inline float average(const float *data_in, uint32_t len) {
-		return average_float(data_in, len);
-	}
-	static inline power_type power_average(const float *data_in, uint32_t len) {
-		return power_average_float(data_in, len);
-	}
-	static inline void init(struct_type *avg, float *buff, uint32_t len) {
-		moving_avg_init_float(avg, buff, len);
-	}
-	static inline float moving_average(struct_type *avg, float new_samp) {
-		return moving_average_float(avg, new_samp);
-	}
-	static inline void moving_average_block(struct_type *avg,
-											const float *data_in,
-											float *data_out, uint32_t len) {
-		moving_average_block_float(avg, data_in, data_out, len);
-	}
-};
-/* Double Specialization */
-template <> struct avg_traits<double> {
-	using struct_type = moving_avg_double_t;
-	using power_type = double;
-
-	static inline double average(const double *data_in, uint32_t len) {
-		return average_double(data_in, len);
-	}
-	static inline power_type power_average(const double *data_in, uint32_t len) {
-		return power_average_double(data_in, len);
-	}
-	static inline void init(struct_type *avg, double *buff, uint32_t len) {
-		moving_avg_init_double(avg, buff, len);
-	}
-	static inline double moving_average(struct_type *avg, double new_samp) {
-		return moving_average_double(avg, new_samp);
-	}
-	static inline void moving_average_block(struct_type *avg,
-											const double *data_in,
-											double *data_out, uint32_t len) {
-		moving_average_block_double(avg, data_in, data_out, len);
-	}
-};
-/* Int32 Specialization */
-template <> struct avg_traits<int32_t> {
-	using struct_type = moving_avg_int32_t;
-	/* The power is returned as int64_t, as the squares don't fit */
-	using power_type = int64_t;
-
-	static inline int32_t average(const int32_t *data_in, uint32_t len) {
-		return average_int32(data_in, len);
-	}
-	static inline power_type power_average(const int32_t *data_in, uint32_t len) {
-		return power_average_int32(data_in, len);
-	}
-	static inline void init(struct_type *avg, int32_t *buff, uint32_t len) {
-		moving_avg_init_int32(avg, buff, len);
-	}
-	static inline int32_t moving_average(struct_type *avg, int32_t new_samp) {
-		return moving_average_int32(avg, new_samp);
-	}
-	static inline void moving_average_block(struct_type *avg,
-											const int32_t *data_in,
-											int32_t *data_out, uint32_t len) {
-		moving_average_block_int32(avg, data_in, data_out, len);
-	}
-};
-/* Int64 Specialization */
-template <> struct avg_traits<int64_t> {
-	using struct_type = moving_avg_int64_t;
-	using power_type = int64_t;
-
-	static inline int64_t average(const int64_t *data_in, uint32_t len) {
-		return average_int64(data_in, len);
-	}
-	static inline power_type power_average(const int64_t *data_in, uint32_t len) {
-		return power_average_int64(data_in, len);
-	}
-	static inline void init(struct_type *avg, int64_t *buff, uint32_t len) {
-		moving_avg_init_int64(avg, buff, len);
-	}
-	static inline int64_t moving_average(struct_type *avg, int64_t new_samp) {
-		return moving_average_int64(avg, new_samp);
-	}
-	static inline void moving_average_block(struct_type *avg,
-											const int64_t *data_in,
-											int64_t *data_out, uint32_t len) {
-		moving_average_block_int64(avg, data_in, data_out, len);
-	}
-};
 
 /* Mean of the samples, 0 if there are none */
 template <typename num_t> num_t average(const std::vector<num_t> &data_in) {

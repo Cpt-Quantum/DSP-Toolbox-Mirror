@@ -3,20 +3,8 @@
 
 /* C++ wrapper for filters (json_filter_parse, fir, iir_ba, iir_sos) */
 
-#include "../cjson/cJSON.h"
 #include "../cjson/cJSON_helpers.h"
-#include "../filter/fir_double.h"
-#include "../filter/fir_float.h"
-#include "../filter/fir_int32.h"
-#include "../filter/fir_int64.h"
-#include "../filter/iir_double.h"
-#include "../filter/iir_float.h"
-#include "../filter/iir_int32.h"
-#include "../filter/iir_int64.h"
-#include "../filter/json_to_filt_double.h"
-#include "../filter/json_to_filt_float.h"
-#include "../filter/json_to_filt_int32.h"
-#include "../filter/json_to_filt_int64.h"
+#include "cpp_traits_filter.h"
 
 #include <cstdint>
 #include <cstdlib>
@@ -78,81 +66,6 @@ class json_filter_parse {
 	}
 };
 
-/* Map the numerical type (float/double/int32_t/int64_t) to struct and
- * function types for FIR filters */
-template <typename num_t> struct fir_traits;
-/* Float Specialization */
-template <> struct fir_traits<float> {
-	using struct_type = fir_float_t;
-
-	static inline void filter(float *data_in, float *data_out,
-							  struct_type *filt, uint32_t len) {
-		fir_filter_float(data_in, data_out, filt, len);
-	}
-	static inline uint32_t decimate(float *data_in, float *data_out,
-									struct_type *filt, uint32_t len,
-									uint8_t rate) {
-		return fir_decimate_float(data_in, data_out, filt, len, rate);
-	}
-	static inline void create(struct_type *filt, cJSON *node) {
-		init_fir_from_json_float(filt, node);
-	}
-	static inline void free(struct_type *filt) { free_fir_float(filt); }
-};
-/* Double Specialization */
-template <> struct fir_traits<double> {
-	using struct_type = fir_double_t;
-
-	static inline void filter(double *data_in, double *data_out,
-							  struct_type *filt, uint32_t len) {
-		fir_filter_double(data_in, data_out, filt, len);
-	}
-	static inline uint32_t decimate(double *data_in, double *data_out,
-									struct_type *filt, uint32_t len,
-									uint8_t rate) {
-		return fir_decimate_double(data_in, data_out, filt, len, rate);
-	}
-	static inline void create(struct_type *filt, cJSON *node) {
-		init_fir_from_json_double(filt, node);
-	}
-	static inline void free(struct_type *filt) { free_fir_double(filt); }
-};
-/* Int32 Specialization */
-template <> struct fir_traits<int32_t> {
-	using struct_type = fir_int32_t;
-
-	static inline void filter(int32_t *data_in, int32_t *data_out,
-							  struct_type *filt, uint32_t len) {
-		fir_filter_int32(data_in, data_out, filt, len);
-	}
-	static inline uint32_t decimate(int32_t *data_in, int32_t *data_out,
-									struct_type *filt, uint32_t len,
-									uint8_t rate) {
-		return fir_decimate_int32(data_in, data_out, filt, len, rate);
-	}
-	static inline void create(struct_type *filt, cJSON *node) {
-		init_fir_from_json_int32(filt, node);
-	}
-	static inline void free(struct_type *filt) { free_fir_int32(filt); }
-};
-/* Int64 Specialization */
-template <> struct fir_traits<int64_t> {
-	using struct_type = fir_int64_t;
-
-	static inline void filter(int64_t *data_in, int64_t *data_out,
-							  struct_type *filt, uint32_t len) {
-		fir_filter_int64(data_in, data_out, filt, len);
-	}
-	static inline uint32_t decimate(int64_t *data_in, int64_t *data_out,
-									struct_type *filt, uint32_t len,
-									uint8_t rate) {
-		return fir_decimate_int64(data_in, data_out, filt, len, rate);
-	}
-	static inline void create(struct_type *filt, cJSON *node) {
-		init_fir_from_json_int64(filt, node);
-	}
-	static inline void free(struct_type *filt) { free_fir_int64(filt); }
-};
 /* FIR wrapper class */
 template <typename num_t> class fir {
   private:
@@ -279,61 +192,6 @@ template <typename num_t> class fir {
 	}
 };
 
-/* Map the numerical type (float/double/int32_t/int64_t) to struct and
- * function types for IIR filters (direct form) */
-template <typename num_t> struct iir_traits;
-/* Float Specialization */
-template <> struct iir_traits<float> {
-	using struct_type = iir_float_t;
-
-	static inline void filter(float *data_in, float *data_out,
-							  struct_type *filt, uint32_t len) {
-		iir_filter_float(data_in, data_out, filt, len);
-	}
-	static inline void create(struct_type *filt, cJSON *node) {
-		init_iir_from_json_float(filt, node);
-	}
-	static inline void free(struct_type *filt) { free_iir_float(filt); }
-};
-/* Double Specialization */
-template <> struct iir_traits<double> {
-	using struct_type = iir_double_t;
-
-	static inline void filter(double *data_in, double *data_out,
-							  struct_type *filt, uint32_t len) {
-		iir_filter_double(data_in, data_out, filt, len);
-	}
-	static inline void create(struct_type *filt, cJSON *node) {
-		init_iir_from_json_double(filt, node);
-	}
-	static inline void free(struct_type *filt) { free_iir_double(filt); }
-};
-/* Int32 Specialization */
-template <> struct iir_traits<int32_t> {
-	using struct_type = iir_int32_t;
-
-	static inline void filter(int32_t *data_in, int32_t *data_out,
-							  struct_type *filt, uint32_t len) {
-		iir_filter_int32(data_in, data_out, filt, len);
-	}
-	static inline void create(struct_type *filt, cJSON *node) {
-		init_iir_from_json_int32(filt, node);
-	}
-	static inline void free(struct_type *filt) { free_iir_int32(filt); }
-};
-/* Int64 Specialization */
-template <> struct iir_traits<int64_t> {
-	using struct_type = iir_int64_t;
-
-	static inline void filter(int64_t *data_in, int64_t *data_out,
-							  struct_type *filt, uint32_t len) {
-		iir_filter_int64(data_in, data_out, filt, len);
-	}
-	static inline void create(struct_type *filt, cJSON *node) {
-		init_iir_from_json_int64(filt, node);
-	}
-	static inline void free(struct_type *filt) { free_iir_int64(filt); }
-};
 /* IIR (direct form) wrapper class */
 template <typename num_t> class iir_ba {
   private:
@@ -458,65 +316,6 @@ template <typename num_t> class iir_ba {
 	}
 };
 
-/* Map the numerical type (float/double/int32_t/int64_t) to struct and
- * function types for IIR filters (SOS) */
-template <typename num_t> struct sos_traits;
-/* Float Specialization */
-template <> struct sos_traits<float> {
-	using struct_type = sos_filter_float_t;
-	using biquad_type = biquad_section_float_t;
-
-	static inline void filter(float *data_in, float *data_out,
-							  struct_type *filt, uint32_t len) {
-		sos_filter_float(data_in, data_out, filt, len);
-	}
-	static inline void create(struct_type *filt, cJSON *node) {
-		init_sos_from_json_float(filt, node);
-	}
-	static inline void free(struct_type *filt) { free_sos_float(filt); }
-};
-/* Double Specialization */
-template <> struct sos_traits<double> {
-	using struct_type = sos_filter_double_t;
-	using biquad_type = biquad_section_double_t;
-
-	static inline void filter(double *data_in, double *data_out,
-							  struct_type *filt, uint32_t len) {
-		sos_filter_double(data_in, data_out, filt, len);
-	}
-	static inline void create(struct_type *filt, cJSON *node) {
-		init_sos_from_json_double(filt, node);
-	}
-	static inline void free(struct_type *filt) { free_sos_double(filt); }
-};
-/* Int32 Specialization */
-template <> struct sos_traits<int32_t> {
-	using struct_type = sos_filter_int32_t;
-	using biquad_type = biquad_section_int32_t;
-
-	static inline void filter(int32_t *data_in, int32_t *data_out,
-							  struct_type *filt, uint32_t len) {
-		sos_filter_int32(data_in, data_out, filt, len);
-	}
-	static inline void create(struct_type *filt, cJSON *node) {
-		init_sos_from_json_int32(filt, node);
-	}
-	static inline void free(struct_type *filt) { free_sos_int32(filt); }
-};
-/* Int64 Specialization */
-template <> struct sos_traits<int64_t> {
-	using struct_type = sos_filter_int64_t;
-	using biquad_type = biquad_section_int64_t;
-
-	static inline void filter(int64_t *data_in, int64_t *data_out,
-							  struct_type *filt, uint32_t len) {
-		sos_filter_int64(data_in, data_out, filt, len);
-	}
-	static inline void create(struct_type *filt, cJSON *node) {
-		init_sos_from_json_int64(filt, node);
-	}
-	static inline void free(struct_type *filt) { free_sos_int64(filt); }
-};
 /* Biquad coefficients structure for SOS filters */
 template <typename num_t> struct biquad_coefficients {
 	std::vector<num_t> a;

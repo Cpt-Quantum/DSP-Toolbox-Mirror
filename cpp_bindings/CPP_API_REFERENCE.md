@@ -54,6 +54,13 @@ my_app: $(CPP_WRAPPER_LIB)
 
 Depending on `$(CPP_WRAPPER_LIB)` runs the top level build first, which generates the C sources and rebuilds whatever has changed. Generation options are set with `GEN_ARGS` on the make command line, see the [README](../README.md#getting-started).
 
+To link the shared library `build/libdsptoolbox.so` instead, use `$(CPP_WRAPPER_SHARED_LIB)` and `$(CPP_WRAPPER_SHARED_LDFLAGS)`. The program is linked with an rpath to the `build/` directory, so it finds the library without setting `LD_LIBRARY_PATH`:
+
+```make
+my_app: $(CPP_WRAPPER_SHARED_LIB)
+	$(CXX) $(CXXFLAGS) my_app.cpp -o my_app $(CPP_WRAPPER_SHARED_LDFLAGS)
+```
+
 ---
 
 ## Waveform Generation (`waveform_x`)
@@ -249,7 +256,7 @@ The plan initialisations available depend on the [generation options](../API_REF
 | `--fft-twiddle-table MAX_N` | Owned workspace | Yes | Yes | Yes |
 | `--fft-twiddle-table MAX_N --fft-table-only` | The generated table | No | Yes | No |
 
-The members that aren't generated are left out, so using them is a compile error.
+Using a member that wasn't generated is a compile error, starting with a `static_assert` naming the option it needs. `table_max_n` is 0 without `--fft-twiddle-table`.
 
 ### Complex FFT (`fft`)
 
@@ -338,4 +345,4 @@ Because the only shared data is read-only, different copies can be run on differ
 
 ## Implementation Details
 
-The C++ wrappers utilize **Traits** to map template types to the correct C function calls (e.g., `fir_traits<float>` calls `fir_filter_float`). Each header follows the same layout: the C headers, the standard headers, then a `<module>_traits<num_t>` struct with float, double, int32_t and int64_t specializations in that order (float and double only for `fft_traits`), then the public classes and functions. All memory management for C-allocated arrays is handled via custom deleters in `std::unique_ptr` or through `std::vector` for high-level data.
+The C++ wrappers utilize **Traits** to map template types to the correct C function calls (e.g., `fir_traits<float>` calls `fir_filter_float`). The traits are generated with the C sources, from `templates/cpp_traits_<module>.h.j2` into `cpp_bindings/cpp_traits_<module>.h`, with a specialization for each type in the generator's type configuration (float and double only for `fft_traits`). They include the module's C headers, and reflect the generation options, e.g. `fft_traits::workspace_plans` and `fft_traits::table_max_n`. Each `cpp_wrapper_<module>.h` includes its traits header and holds the hand-written public classes and functions, so supporting a new C function means adding it to the traits template and calling it from the class. All memory management for C-allocated arrays is handled via custom deleters in `std::unique_ptr` or through `std::vector` for high-level data.

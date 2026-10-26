@@ -3,112 +3,15 @@
 
 /* C++ wrapper for the FFT (fft, rfft and dft), float and double only */
 
-#include "../fft/fft_double.h"
-#include "../fft/fft_float.h"
-#include "../fft/fft_shared.h"
+#include "cpp_traits_fft.h"
 
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <memory>
 #include <stdexcept>
+#include <type_traits>
 #include <vector>
-
-/* The generation options decide which plan initialisations exist, and the
- * generated headers only define these macros when they do. The float and
- * double FFTs are always generated with the same options:
- * - FFT_PLAN_SIZE_FLOAT: workspace plans, left out by --fft-table-only
- * - FFT_TABLE_MAX_N_FLOAT: table plans, added by --fft-twiddle-table */
-
-/* Map the numerical type (float/double) to struct and function types for the
- * FFT */
-template <typename num_t> struct fft_traits;
-/* Float Specialization */
-template <> struct fft_traits<float> {
-	using plan_type = fft_plan_float_t;
-	using rplan_type = rfft_plan_float_t;
-	using complex_type = complex_float_t;
-
-#ifdef FFT_PLAN_SIZE_FLOAT
-	static inline size_t plan_size(uint32_t n) { return fft_plan_size_float(n); }
-	static inline FFT_STATUS_E plan_init(plan_type *plan, uint32_t n, void *work,
-										 size_t work_bytes) {
-		return fft_plan_init_float(plan, n, work, work_bytes);
-	}
-	static inline FFT_STATUS_E rplan_init(rplan_type *plan, uint32_t n,
-										  void *work, size_t work_bytes) {
-		return rfft_plan_init_float(plan, n, work, work_bytes);
-	}
-	static inline void dft(const complex_type *data_in, complex_type *data_out,
-						   uint32_t n) {
-		dft_float(data_in, data_out, n);
-	}
-#endif
-#ifdef FFT_TABLE_MAX_N_FLOAT
-	static constexpr uint32_t table_max_n = FFT_TABLE_MAX_N_FLOAT;
-	static inline FFT_STATUS_E plan_init_table(plan_type *plan, uint32_t n) {
-		return fft_plan_init_table_float(plan, n);
-	}
-	static inline FFT_STATUS_E rplan_init_table(rplan_type *plan, uint32_t n) {
-		return rfft_plan_init_table_float(plan, n);
-	}
-#endif
-	static inline void forward(const plan_type *plan, complex_type *x) {
-		fft_float(plan, x);
-	}
-	static inline void inverse(const plan_type *plan, complex_type *x) {
-		ifft_float(plan, x);
-	}
-	static inline void rforward(const rplan_type *plan, float *x) {
-		rfft_float(plan, x);
-	}
-	static inline void rinverse(const rplan_type *plan, float *x) {
-		irfft_float(plan, x);
-	}
-};
-/* Double Specialization */
-template <> struct fft_traits<double> {
-	using plan_type = fft_plan_double_t;
-	using rplan_type = rfft_plan_double_t;
-	using complex_type = complex_double_t;
-
-#ifdef FFT_PLAN_SIZE_DOUBLE
-	static inline size_t plan_size(uint32_t n) { return fft_plan_size_double(n); }
-	static inline FFT_STATUS_E plan_init(plan_type *plan, uint32_t n, void *work,
-										 size_t work_bytes) {
-		return fft_plan_init_double(plan, n, work, work_bytes);
-	}
-	static inline FFT_STATUS_E rplan_init(rplan_type *plan, uint32_t n,
-										  void *work, size_t work_bytes) {
-		return rfft_plan_init_double(plan, n, work, work_bytes);
-	}
-	static inline void dft(const complex_type *data_in, complex_type *data_out,
-						   uint32_t n) {
-		dft_double(data_in, data_out, n);
-	}
-#endif
-#ifdef FFT_TABLE_MAX_N_DOUBLE
-	static constexpr uint32_t table_max_n = FFT_TABLE_MAX_N_DOUBLE;
-	static inline FFT_STATUS_E plan_init_table(plan_type *plan, uint32_t n) {
-		return fft_plan_init_table_double(plan, n);
-	}
-	static inline FFT_STATUS_E rplan_init_table(rplan_type *plan, uint32_t n) {
-		return rfft_plan_init_table_double(plan, n);
-	}
-#endif
-	static inline void forward(const plan_type *plan, complex_type *x) {
-		fft_double(plan, x);
-	}
-	static inline void inverse(const plan_type *plan, complex_type *x) {
-		ifft_double(plan, x);
-	}
-	static inline void rforward(const rplan_type *plan, double *x) {
-		rfft_double(plan, x);
-	}
-	static inline void rinverse(const rplan_type *plan, double *x) {
-		irfft_double(plan, x);
-	}
-};
 
 /* Throws std::invalid_argument for a failed plan initialisation */
 inline void fft_check_status(FFT_STATUS_E status) {
@@ -144,7 +47,6 @@ template <typename num_t, typename plan_t> class fft_plan_base {
 
 	fft_plan_base() = default;
 
-#ifdef FFT_PLAN_SIZE_FLOAT
 	/* Allocates the workspace and passes it to init(plan, n, work, bytes) */
 	template <typename init_t> void init_owned(uint32_t n, init_t init) {
 		size_t bytes = traits::plan_size(n);
@@ -156,7 +58,12 @@ template <typename num_t, typename plan_t> class fft_plan_base {
 		fft_check_status(init(&plan, n, work->data(), bytes));
 		twiddles = std::move(work);
 	}
-#endif
+	/* Selects how the derived classes' init_default() plans, with the owned
+	 * workspace when the workspace plans were generated, otherwise from the
+	 * table. Only the overload used is compiled, so it never names a
+	 * function that wasn't generated */
+	using has_workspace_plans =
+		std::integral_constant<bool, traits::workspace_plans>;
 
 	void check_length(std::size_t length) const {
 		if (length != plan.n) {
@@ -185,42 +92,51 @@ class fft : public fft_plan_base<num_t, typename fft_traits<num_t>::plan_type> {
 
 	fft() = default;
 
+	void init_default(uint32_t n, std::true_type) {
+		this->init_owned(n, traits::plan_init);
+	}
+	void init_default(uint32_t n, std::false_type) {
+		fft_check_status(traits::plan_init_table(&plan, n));
+	}
+
   public:
 	using complex_type = complex_t;
 
-#ifdef FFT_PLAN_SIZE_FLOAT
-	/* Plans n point transforms with a workspace owned by the object, throws
-	 * std::invalid_argument if n is not a power of two of at least 2 */
-	explicit fft(uint32_t n) { this->init_owned(n, traits::plan_init); }
+	/* Plans n point transforms with a workspace owned by the object. With
+	 * --fft-table-only, plans from the generated table instead, the same as
+	 * from_table(). Throws std::invalid_argument if n is not a power of two of
+	 * at least 2 (up to table_max_n from the table) */
+	explicit fft(uint32_t n) {
+		init_default(n, typename base::has_workspace_plans());
+	}
 	/* Uses the caller's workspace of work_bytes, which must outlive the
 	 * object and its copies. Throws std::invalid_argument on any error from
-	 * fft_plan_init_*() */
+	 * fft_plan_init_*(). Not generated with --fft-table-only */
 	fft(uint32_t n, void *work, size_t work_bytes) {
+		static_assert(traits::workspace_plans,
+					  "workspace plans aren't generated with --fft-table-only");
 		fft_check_status(traits::plan_init(&plan, n, work, work_bytes));
 	}
-	/* Workspace bytes needed for an n point plan, 0 if n is invalid */
-	static size_t workspace_size(uint32_t n) { return traits::plan_size(n); }
-#endif
-#ifdef FFT_TABLE_MAX_N_FLOAT
-#ifndef FFT_PLAN_SIZE_FLOAT
-	/* With --fft-table-only, plans n point transforms from the generated
-	 * table, the same as from_table(). Throws std::invalid_argument if n is
-	 * not a power of two from 2 to table_max_n */
-	explicit fft(uint32_t n) {
-		fft_check_status(traits::plan_init_table(&plan, n));
+	/* Workspace bytes needed for an n point plan, 0 if n is invalid. Not
+	 * generated with --fft-table-only */
+	static size_t workspace_size(uint32_t n) {
+		static_assert(traits::workspace_plans,
+					  "workspace plans aren't generated with --fft-table-only");
+		return traits::plan_size(n);
 	}
-#endif
-	/* Largest n supported by the generated twiddle table */
+	/* Largest n supported by the generated twiddle table, 0 without
+	 * --fft-twiddle-table */
 	static constexpr uint32_t table_max_n = traits::table_max_n;
 	/* Plans n point transforms from the generated table, with no workspace.
 	 * Throws std::invalid_argument if n is not a power of two from 2 to
-	 * table_max_n */
+	 * table_max_n. Needs --fft-twiddle-table */
 	static fft from_table(uint32_t n) {
+		static_assert(traits::table_max_n > 0,
+					  "the twiddle table needs --fft-twiddle-table");
 		fft f;
 		fft_check_status(traits::plan_init_table(&f.plan, n));
 		return f;
 	}
-#endif
 
 	/* In place forward and inverse transforms of x, which must hold size()
 	 * values. Throws std::invalid_argument if it doesn't */
@@ -269,41 +185,51 @@ class rfft
 
 	rfft() = default;
 
+	void init_default(uint32_t n, std::true_type) {
+		this->init_owned(n, traits::rplan_init);
+	}
+	void init_default(uint32_t n, std::false_type) {
+		fft_check_status(traits::rplan_init_table(&plan, n));
+	}
+
   public:
 	using complex_type = complex_t;
 
-#ifdef FFT_PLAN_SIZE_FLOAT
-	/* Plans transforms of n real samples with a workspace owned by the object,
-	 * throws std::invalid_argument if n is not a power of two of at least 2 */
-	explicit rfft(uint32_t n) { this->init_owned(n, traits::rplan_init); }
+	/* Plans transforms of n real samples with a workspace owned by the object.
+	 * With --fft-table-only, plans from the generated table instead, the same
+	 * as from_table(). Throws std::invalid_argument if n is not a power of
+	 * two of at least 2 (up to table_max_n from the table) */
+	explicit rfft(uint32_t n) {
+		init_default(n, typename base::has_workspace_plans());
+	}
 	/* Uses the caller's workspace of work_bytes, which must outlive the
 	 * object and its copies. Throws std::invalid_argument on any error from
-	 * rfft_plan_init_*() */
+	 * rfft_plan_init_*(). Not generated with --fft-table-only */
 	rfft(uint32_t n, void *work, size_t work_bytes) {
+		static_assert(traits::workspace_plans,
+					  "workspace plans aren't generated with --fft-table-only");
 		fft_check_status(traits::rplan_init(&plan, n, work, work_bytes));
 	}
-	/* Workspace bytes needed for an n sample plan, 0 if n is invalid */
-	static size_t workspace_size(uint32_t n) { return traits::plan_size(n); }
-#endif
-#ifdef FFT_TABLE_MAX_N_FLOAT
-#ifndef FFT_PLAN_SIZE_FLOAT
-	/* With --fft-table-only, plans from the generated table, the same as
-	 * from_table() */
-	explicit rfft(uint32_t n) {
-		fft_check_status(traits::rplan_init_table(&plan, n));
+	/* Workspace bytes needed for an n sample plan, 0 if n is invalid. Not
+	 * generated with --fft-table-only */
+	static size_t workspace_size(uint32_t n) {
+		static_assert(traits::workspace_plans,
+					  "workspace plans aren't generated with --fft-table-only");
+		return traits::plan_size(n);
 	}
-#endif
-	/* Largest n supported by the generated twiddle table */
+	/* Largest n supported by the generated twiddle table, 0 without
+	 * --fft-twiddle-table */
 	static constexpr uint32_t table_max_n = traits::table_max_n;
 	/* Plans transforms of n real samples from the generated table, with no
 	 * workspace. Throws std::invalid_argument if n is not a power of two from
-	 * 2 to table_max_n */
+	 * 2 to table_max_n. Needs --fft-twiddle-table */
 	static rfft from_table(uint32_t n) {
+		static_assert(traits::table_max_n > 0,
+					  "the twiddle table needs --fft-twiddle-table");
 		rfft f;
 		fft_check_status(traits::rplan_init_table(&f.plan, n));
 		return f;
 	}
-#endif
 
 	/* In place, in the packed layout. x must hold size() values, throws
 	 * std::invalid_argument if it doesn't */
@@ -365,23 +291,23 @@ class rfft
 	void inverse(num_t *x) const { traits::rinverse(&plan, x); }
 };
 
-#ifdef FFT_PLAN_SIZE_FLOAT
-/* Direct O(N^2) DFT of any length, as a slow reference. out is resized to the
- * length of x, and must not be the same vector. Not generated with
- * --fft-table-only */
+/* Direct O(N^2) DFT of any length, as a slow reference. data_in and data_out
+ * must not overlap. Not generated with --fft-table-only */
+template <typename C, typename num_t = decltype(C::real)>
+void dft(const C *data_in, C *data_out, uint32_t length) {
+	static_assert(fft_traits<num_t>::workspace_plans,
+				  "dft isn't generated with --fft-table-only");
+	fft_traits<num_t>::dft(data_in, data_out, length);
+}
+/* Vector overload, out is resized to the length of x, and must not be the
+ * same vector */
 template <typename C, typename num_t = decltype(C::real)>
 void dft(const std::vector<C> &x, std::vector<C> &out) {
 	if (&x == &out) {
 		throw std::invalid_argument("dft input and output are the same vector");
 	}
 	out.resize(x.size());
-	fft_traits<num_t>::dft(x.data(), out.data(), (uint32_t)x.size());
+	dft(x.data(), out.data(), (uint32_t)x.size());
 }
-/* Pointer overload, data_in and data_out must not overlap */
-template <typename C, typename num_t = decltype(C::real)>
-void dft(const C *data_in, C *data_out, uint32_t length) {
-	fft_traits<num_t>::dft(data_in, data_out, length);
-}
-#endif
 
 #endif /* DSP_TOOLBOX_CPP_WRAPPER_FFT_H */
