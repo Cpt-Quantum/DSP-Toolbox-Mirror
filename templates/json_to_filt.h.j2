@@ -1,6 +1,10 @@
 #ifndef JSON_TO_FILT_{{ type.suffix | upper }}_H
 #define JSON_TO_FILT_{{ type.suffix | upper }}_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "../cjson/cJSON.h"
 #include "fir_{{ type.suffix }}.h"
 #include "iir_{{ type.suffix }}.h"
@@ -13,5 +17,9 @@ void init_sos_from_json_{{ type.suffix }}(struct sos_filter_{{ type.suffix }}_t 
 void free_fir_{{ type.suffix }}(struct fir_{{ type.suffix }}_t *filt);
 void free_iir_{{ type.suffix }}(struct iir_{{ type.suffix }}_t *filt);
 void free_sos_{{ type.suffix }}(struct sos_filter_{{ type.suffix }}_t *filt);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* JSON_TO_FILT_{{ type.suffix | upper }}_H */

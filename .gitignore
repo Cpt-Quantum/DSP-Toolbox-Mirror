@@ -4,6 +4,7 @@ tags
 .vscode
 .cache
 compile_commands.json
+build/
 # Ignore the C code generated from jinja2 templates
 filter/fir_*.c
 filter/fir_*.h

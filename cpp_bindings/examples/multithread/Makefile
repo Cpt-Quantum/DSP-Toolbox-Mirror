@@ -39,8 +39,8 @@ PY_PLOT_ARGS += --fft $(FFT_OUTPUT_BIN) --fft-size $(FFT_SIZE)
 # Set the linker flags
 LINKER_FLAGS += $(CPP_WRAPPER_LDFLAGS)
 
-multithread:
-	$(CC) $(CFLAGS) multithread_test.cpp $(CPP_WRAPPER_FILTER_SRC) $(CPP_WRAPPER_FFT_SRC) $(CPP_WRAPPER_WAVEFORM_SRC) -o multithread_test $(LINKER_FLAGS)
+multithread: $(CPP_WRAPPER_LIB)
+	$(CC) $(CFLAGS) multithread_test.cpp -o multithread_test $(LINKER_FLAGS)
 
 design:
 	$(PY) filter_design.py

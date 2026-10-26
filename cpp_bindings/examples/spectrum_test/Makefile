@@ -16,8 +16,8 @@ include ../../cpp_wrapper.mk
 # Set the linker flags
 LINKER_FLAGS += $(CPP_WRAPPER_LDFLAGS)
 
-spectrum:
-	$(CC) $(CFLAGS) spectrum_test.cpp $(CPP_WRAPPER_WAVEFORM_SRC) -o spectrum_test $(LINKER_FLAGS)
+spectrum: $(CPP_WRAPPER_LIB)
+	$(CC) $(CFLAGS) spectrum_test.cpp -o spectrum_test $(LINKER_FLAGS)
 
 clean:
 	rm spectrum_test

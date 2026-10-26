@@ -1,27 +1,18 @@
 # Shared variables
 RESULTS_DIR = results
 BIN_NAME = main.o
-FILTER_JSON = filters.json
+FILTER_JSON = $(RESULTS_DIR)/filters.json
 
 # C variables
-INC_DIR = ../inc
-CJSON_DIR = ../cjson
 CC = gcc
 CFLAGS = -Wall
-LFLAGS = -lm
+# The library built by the top level Makefile
+ROOT_DIR = ..
+LIB = $(ROOT_DIR)/build/libdsptoolbox.a
+LFLAGS = $(LIB) -lm
 
 C_FILES = main.c
-C_FILES += iir_float.c
-C_FILES += fir_float.c
 C_FILES += main_inc.c
-C_FILES += json_to_filt_float.c
-C_FILES += iir_int32.c
-C_FILES += fir_int32.c
-C_FILES += json_to_filt_int32.c
-C_FILES += $(CJSON_DIR)/cJSON.c
-C_FILES += $(CJSON_DIR)/cJSON_helpers.c
-C_FILES += $(INC_DIR)/waveform_gen_float.c
-C_FILES += $(INC_DIR)/spectrum_gen_float.c
 
 # Python script variables
 PYTHON = python3
@@ -49,7 +40,7 @@ $(FILTER_JSON): $(FILTER_GEN_SCRIPT)
 	$(PYTHON) $(FILTER_GEN_SCRIPT)
 
 # Compile the C file
-$(BIN_NAME): $(C_FILES) $(FILTER_JSON)
+$(BIN_NAME): $(C_FILES) $(LIB) $(FILTER_JSON)
 	@echo "Compiling C filter implementation..."
 	$(CC) $(CFLAGS) $(C_FILES) -o $(BIN_NAME) $(LFLAGS)
 
@@ -68,10 +59,15 @@ $(RESULTS_DIR)/%.mat $(RESULTS_DIR)/%.png: $(RESULTS_DIR)/%.csv $(INPUT_DATA) $(
 compare: $(FILTER_CSVS) $(INPUT_DATA) $(COMPARE_SCRIPT)
 	$(PYTHON) $(COMPARE_SCRIPT) $(RESULTS_DIR)
 
+# Build the library, or bring it up to date. It isn't touched if it is
+# already up to date, so the binary is only relinked when it changes
+$(LIB): FORCE
+	$(MAKE) -C $(ROOT_DIR) lib
+
 # Derived make rules depending on the rules above
 # C binary generation rules (filter gives normal binary, debug creates binary with debug symbols)
 filter: $(BIN_NAME)
-debug: $(C_FILES) $(FILTER_JSON)
+debug: $(C_FILES) $(LIB) $(FILTER_JSON)
 	$(CC) $(CFLAGS) -g $(C_FILES) -o $(BIN_NAME) $(LFLAGS)
 # Valgrind test rule for finding memory bugs
 leak-check:
@@ -91,4 +87,6 @@ clean:
 	rm -f $(BIN_NAME)
 	rm -rf $(RESULTS_DIR)/*.csv $(RESULTS_DIR)/*.mat $(RESULTS_DIR)/*.png
 
-.PHONY: all compare filter debug leak-check test clean
+FORCE:
+
+.PHONY: all compare filter debug leak-check test clean FORCE

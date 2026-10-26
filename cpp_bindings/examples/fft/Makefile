@@ -21,8 +21,8 @@ PY_PLOT_ARGS = --fs $(SAMPLE_RATE) --input $(INPUT_BIN) --output $(OUTPUT_BIN)
 # Set the linker flags
 LINKER_FLAGS += $(CPP_WRAPPER_LDFLAGS)
 
-fft:
-	$(CC) $(CFLAGS) fft_test.cpp $(CPP_WRAPPER_FFT_SRC) $(CPP_WRAPPER_WAVEFORM_SRC) -o fft_test $(LINKER_FLAGS)
+fft: $(CPP_WRAPPER_LIB)
+	$(CC) $(CFLAGS) fft_test.cpp -o fft_test $(LINKER_FLAGS)
 
 run_all: fft
 	./fft_test

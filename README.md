@@ -18,17 +18,41 @@ welcome).
 
 # Getting started
 
-In order to use this library, you'll need to run the generate script for the C
-files. This can be done from the root of the project as:
+The C sources are generated from jinja2 templates and compiled into a static
+library by running `make` from the root of the project:
 
 ```shell
-python scripts/generate_sources.py
+make
 ```
 
-For targets without a C standard library (e.g. MCUs), or to use your own copy
-functions in the filters, see the options in
-`python scripts/generate_sources.py --help` and the
-[C API documentation](API_REFERENCE.md#generation-options-copy-functions).
+This generates the sources and builds `build/libdsptoolbox.a`. Link it after
+your own sources, with `-lm` if you use any of the modules that need the maths
+library. Running `make` again regenerates the sources when a template, the
+generator or the generation options change, and only recompiles what changed.
+`make examples` also builds every C and C++ example against the library, and
+`make clean` removes the `build/` directory.
+
+The build is set up with variables on the command line:
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `GEN_ARGS` | *(none)* | Options for `scripts/generate_sources.py`, see `python scripts/generate_sources.py --help` and the [C API documentation](API_REFERENCE.md#generation-options-copy-functions) |
+| `CC`, `AR`, `CFLAGS` | `cc`, `ar`, `-Wall -O2` | The compiler, archiver and flags, e.g. for cross compiling |
+| `JSON` | `1` | Set to `0` to leave out the JSON filter loading and cJSON, which need the C standard library |
+| `BUILD_DIR` | `build` | Where the objects and library go |
+
+For example, for a Cortex-M4F without a C standard library, with a const FFT
+twiddle table and no maths library in the FFT:
+
+```shell
+make CC=arm-none-eabi-gcc AR=arm-none-eabi-ar \
+     CFLAGS="-O2 -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard" \
+     GEN_ARGS="--no-stdlib --fft-twiddle-table 1024 --fft-table-only" JSON=0
+```
+
+The generated sources are written into the source tree, next to the
+templates' other outputs, so they are shared by every `BUILD_DIR`. Changing
+`GEN_ARGS` regenerates them for all builds.
 
 # API documentation
 
@@ -37,9 +61,9 @@ functions in the filters, see the options in
 
 # C++ examples
 
-Examples using the C++ bindings are in `cpp_bindings/examples/`. Generate the C
-sources first (see above), then build each example with `make` from inside its
-folder:
+Examples using the C++ bindings are in `cpp_bindings/examples/`. Build each
+example with `make` from inside its folder, which builds the library first if
+needed:
 
 | Example | Build | Description |
 | :--- | :--- | :--- |

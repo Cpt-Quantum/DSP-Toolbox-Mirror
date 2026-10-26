@@ -15,7 +15,7 @@ The FFT classes are only generated for `float` and `double`.
 
 ## Table of Contents
 
-* [Headers and Sources](#headers-and-sources)
+* [Headers and Building](#headers-and-building)
 * [Waveform Generation (`waveform_x`)](#waveform-generation-waveform_x)
 * [Streaming Generation, NCO / DDS (`nco`)](#streaming-generation-nco--dds-nco)
 * [FIR Filters (`fir`)](#fir-filters-fir)
@@ -29,20 +29,30 @@ The FFT classes are only generated for `float` and `double`.
 
 ---
 
-## Headers and Sources
+## Headers and Building
 
-Each module has its own header, and `cpp_wrapper.h` includes all of them. Include only the modules you use, and build the matching sources from `cpp_wrapper.mk`:
+Each module has its own header, and `cpp_wrapper.h` includes all of them. Include only the modules you use:
 
-| Header | Contents | Sources (`cpp_wrapper.mk`) |
-|---|---|---|
-| `cpp_wrapper_average.h` | `average`, `power_average`, `moving_avg` | `CPP_WRAPPER_AVERAGE_SRC` |
-| `cpp_wrapper_complex.h` | `complex_t`, `polar_t`, the `complex_*` functions and operators | `CPP_WRAPPER_COMPLEX_SRC` |
-| `cpp_wrapper_fft.h` | `fft`, `rfft`, `dft` | `CPP_WRAPPER_FFT_SRC` |
-| `cpp_wrapper_filter.h` | `json_filter_parse`, `fir`, `iir_ba`, `iir_sos` | `CPP_WRAPPER_FILTER_SRC` |
-| `cpp_wrapper_waveform.h` | `waveform_t`, `waveform_x`, `nco` | `CPP_WRAPPER_WAVEFORM_SRC` |
-| `cpp_wrapper.h` | All of the above | `CPP_WRAPPER_SRC` |
+| Header | Contents |
+|---|---|
+| `cpp_wrapper_average.h` | `average`, `power_average`, `moving_avg` |
+| `cpp_wrapper_complex.h` | `complex_t`, `polar_t`, the `complex_*` functions and operators |
+| `cpp_wrapper_fft.h` | `fft`, `rfft`, `dft` |
+| `cpp_wrapper_filter.h` | `json_filter_parse`, `fir`, `iir_ba`, `iir_sos` |
+| `cpp_wrapper_waveform.h` | `waveform_t`, `waveform_x`, `nco` |
+| `cpp_wrapper.h` | All of the above |
 
-For example, a project using only the filters would set `CPP_WRAPPER_ROOT_DIR`, `include cpp_wrapper.mk`, then compile with `$(CPP_WRAPPER_FILTER_SRC)` and link with `$(CPP_WRAPPER_LDFLAGS)`. `cpp_data_io.h` uses `cpp_wrapper_waveform.h`, so it also needs `CPP_WRAPPER_WAVEFORM_SRC`.
+The C code is compiled as C by the top level `Makefile` into `build/libdsptoolbox.a`, which every module links against. To use it from your own makefile, set `CPP_WRAPPER_ROOT_DIR` to the root of the repository and `include cpp_wrapper.mk`, then make your target depend on `$(CPP_WRAPPER_LIB)` and link with `$(CPP_WRAPPER_LDFLAGS)` after your sources:
+
+```make
+CPP_WRAPPER_ROOT_DIR = path/to/DSP-Toolbox
+include $(CPP_WRAPPER_ROOT_DIR)/cpp_bindings/cpp_wrapper.mk
+
+my_app: $(CPP_WRAPPER_LIB)
+	$(CXX) $(CXXFLAGS) my_app.cpp -o my_app $(CPP_WRAPPER_LDFLAGS)
+```
+
+Depending on `$(CPP_WRAPPER_LIB)` runs the top level build first, which generates the C sources and rebuilds whatever has changed. Generation options are set with `GEN_ARGS` on the make command line, see the [README](../README.md#getting-started).
 
 ---
 

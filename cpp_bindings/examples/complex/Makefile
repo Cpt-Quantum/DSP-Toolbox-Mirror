@@ -9,8 +9,8 @@ include ../../cpp_wrapper.mk
 # Set the linker flags
 LINKER_FLAGS += $(CPP_WRAPPER_LDFLAGS)
 
-complex:
-	$(CC) $(CFLAGS) complex_test.cpp $(CPP_WRAPPER_COMPLEX_SRC) -o complex_test $(LINKER_FLAGS)
+complex: $(CPP_WRAPPER_LIB)
+	$(CC) $(CFLAGS) complex_test.cpp -o complex_test $(LINKER_FLAGS)
 
 clean:
 	rm complex_test

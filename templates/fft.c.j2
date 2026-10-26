@@ -7,13 +7,6 @@
 #include "fft_{{ type.suffix }}.h"
 {%- if not fft.table_only %}
 
-/* The sources are also compiled as C++ by the C++ wrapper */
-#ifdef __cplusplus
-#define ALIGNOF(type) alignof(type)
-#else
-#define ALIGNOF(type) _Alignof(type)
-#endif
-
 #define TWO_PI 6.28318530717958647692
 
 {% if fft.twiddle.math_type != type.name -%}
@@ -143,11 +136,11 @@ static FFT_STATUS_E fill_twiddles_{{ type.suffix }}(const void *plan, uint32_t n
 	if (work_bytes < required) {
 		return FFT_ERR_WORK_TOO_SMALL;
 	}
-	if ((uintptr_t)work % ALIGNOF(complex_{{ type.suffix }}_t) != 0) {
+	if ((uintptr_t)work % _Alignof(complex_{{ type.suffix }}_t) != 0) {
 		return FFT_ERR_WORK_MISALIGNED;
 	}
 
-	complex_{{ type.suffix }}_t *twiddle = (complex_{{ type.suffix }}_t *)work;
+	complex_{{ type.suffix }}_t *twiddle = work;
 	const uint32_t half = n / 2;
 	const uint32_t quarter = n / 4;
 	for (uint32_t k = 0; k < half; k++) {
@@ -174,7 +167,7 @@ FFT_STATUS_E fft_plan_init_{{ type.suffix }}(struct fft_plan_{{ type.suffix }}_t
 
 	plan->n = n;
 	plan->log2n = log2_{{ type.suffix }}(n);
-	plan->twiddle = (const complex_{{ type.suffix }}_t *)work;
+	plan->twiddle = work;
 	plan->twiddle_stride = 1;
 
 	return FFT_OK;
@@ -188,7 +181,7 @@ FFT_STATUS_E rfft_plan_init_{{ type.suffix }}(struct rfft_plan_{{ type.suffix }}
 	}
 
 	plan->n = n;
-	plan->twiddle = (const complex_{{ type.suffix }}_t *)work;
+	plan->twiddle = work;
 	plan->twiddle_stride = 1;
 
 	return FFT_OK;

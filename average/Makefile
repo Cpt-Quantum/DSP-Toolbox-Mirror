@@ -3,16 +3,14 @@ RESULTS_DIR = results
 BIN_NAME = main.o
 
 # C variables
-INC_DIR = ../inc
 CC = gcc
 CFLAGS = -Wall
-LFLAGS = -lm
+# The library built by the top level Makefile
+ROOT_DIR = ..
+LIB = $(ROOT_DIR)/build/libdsptoolbox.a
+LFLAGS = $(LIB) -lm
 
 C_FILES = main.c
-C_FILES += avg_float.c
-C_FILES += avg_int32.c
-C_FILES += $(INC_DIR)/complex_float.c
-C_FILES += $(INC_DIR)/waveform_gen_float.c
 
 # Python script variables
 PYTHON = python3
@@ -26,7 +24,7 @@ PNG_FILE = $(RESULTS_DIR)/average.png
 all: $(PNG_FILE)
 
 # Compile the C file
-$(BIN_NAME): $(C_FILES)
+$(BIN_NAME): $(C_FILES) $(LIB)
 	@echo "Compiling C averaging implementation..."
 	$(CC) $(CFLAGS) $(C_FILES) -o $(BIN_NAME) $(LFLAGS)
 
@@ -41,10 +39,15 @@ $(PNG_FILE): $(DATA_CSVS) $(PLOT_SCRIPT)
 	@echo "Plotting the averaging results..."
 	$(PYTHON) $(PLOT_SCRIPT) $(RESULTS_DIR)
 
+# Build the library, or bring it up to date. It isn't touched if it is
+# already up to date, so the binary is only relinked when it changes
+$(LIB): FORCE
+	$(MAKE) -C $(ROOT_DIR) lib
+
 # Derived make rules depending on the rules above
 # C binary generation rules (average gives normal binary, debug creates binary with debug symbols)
 average: $(BIN_NAME)
-debug: $(C_FILES)
+debug: $(C_FILES) $(LIB)
 	$(CC) $(CFLAGS) -g $(C_FILES) -o $(BIN_NAME) $(LFLAGS)
 # Valgrind test rule for finding memory bugs
 leak-check:
@@ -63,4 +66,6 @@ clean:
 	rm -f $(BIN_NAME)
 	rm -rf $(RESULTS_DIR)/*.csv $(RESULTS_DIR)/*.png
 
-.PHONY: all average debug leak-check test clean
+FORCE:
+
+.PHONY: all average debug leak-check test clean FORCE
