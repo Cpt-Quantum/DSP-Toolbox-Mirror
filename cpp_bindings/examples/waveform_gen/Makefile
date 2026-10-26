@@ -1,5 +1,5 @@
 # C parameters
-CC = g++
+CXX = g++
 CFLAGS = -Wall -O3
 
 # Include the CPP wrapper makefile
@@ -10,7 +10,7 @@ include ../../cpp_wrapper.mk
 LINKER_FLAGS += $(CPP_WRAPPER_LDFLAGS)
 
 spectrum: $(CPP_WRAPPER_LIB)
-	$(CC) $(CFLAGS) waveform_gen_test.cpp -o waveform_gen_test $(LINKER_FLAGS)
+	$(CXX) $(CFLAGS) waveform_gen_test.cpp -o waveform_gen_test $(LINKER_FLAGS)
 
 clean:
 	rm waveform_gen_test

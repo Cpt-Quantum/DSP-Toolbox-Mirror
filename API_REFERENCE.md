@@ -220,9 +220,9 @@ The integer loaders also read `frac_bits` from the filter's JSON object, as writ
 
 ## Averaging
 
-Block averages and a moving average in `average/avg_{{suffix}}.h`, for every type. They only need freestanding headers, so they build without a C standard library.
+Block averages, statistics and a moving average in `average/avg_{{suffix}}.h`, for every type. They only need freestanding headers, so they build without a C standard library, except for the float and double `rms_{{suffix}}()` and `std_dev_{{suffix}}()`, which use `sqrt` from the maths library and aren't generated with `--no-stdlib`. The integer versions use an integer square root.
 
-The integer types sum in `int64_t` and round each average to the nearest value, with halves away from zero. The sums must not overflow `int64_t`. For `power_average_{{suffix}}()`, the number of samples times the largest squared sample must be below 2^63. For example, that allows up to 2^32 samples of 16-bit data, or 2^16 samples of full-scale 24-bit data. The power of an `int32` signal is returned as `int64_t`, as the squares don't fit in `int32_t`.
+The integer types sum in `int64_t` and round each average to the nearest value, with halves away from zero. The sums must not overflow `int64_t`. For `power_average_{{suffix}}()`, the number of samples times the largest squared sample must be below 2^63. For example, that allows up to 2^32 samples of 16-bit data, or 2^16 samples of full-scale 24-bit data. The power and variance of an `int32` signal are returned as `int64_t`, as the squares don't fit in `int32_t`. The integer RMS, variance and standard deviation are the exact values rounded to the nearest integer (halves up), worked out without floating point, with the same limit on the sums as `power_average_{{suffix}}()`. The `int32` RMS and standard deviation saturate at `INT32_MAX`, which they can only pass by rounding up to 2^31 for full-scale samples.
 
 ### Data Structures
 
@@ -242,6 +242,11 @@ struct moving_avg_{{suffix}}_t {
 | :--- | :--- |
 | `average_{{suffix}}(data_in, length)` | Mean of `length` samples, 0 if `length` is 0. |
 | `power_average_{{suffix}}(data_in, length)` | Mean of the squares of `length` samples, 0 if `length` is 0. Returns `{{acc_type}}`. |
+| `rms_{{suffix}}(data_in, length)` | Root mean square of `length` samples, 0 if `length` is 0. Not generated for float and double with `--no-stdlib`. |
+| `variance_{{suffix}}(data_in, length)` | Population variance of `length` samples (dividing by `length`, as `numpy.var`), 0 if `length` is 0. Returns `{{acc_type}}`. Summed from the deviations from the mean, so a large DC offset doesn't cost precision. |
+| `std_dev_{{suffix}}(data_in, length)` | Population standard deviation, the square root of the variance. Not generated for float and double with `--no-stdlib`. |
+| `minimum_{{suffix}}(data_in, length, index)`, `maximum_{{suffix}}(data_in, length, index)` | Smallest or largest of `length` samples, 0 if `length` is 0. If `index` isn't NULL, it is set to the index of the first occurrence (0 if `length` is 0). For float and double, NaNs are skipped unless every sample is NaN. |
+| `zero_crossings_{{suffix}}(data_in, length)` | Number of sign changes between consecutive samples, with 0 counted as positive. To count across blocks, start each block with the last sample of the previous one. |
 | `moving_avg_init_{{suffix}}(avg, buff, length)` | Initialises `avg` with an empty window of `length` samples (at least 1) held in `buff`, which must outlive `avg`. |
 | `moving_average_{{suffix}}(avg, new_samp)` | Adds a sample to the window and returns the new average. Until the window is full, this is the average of the samples received so far. |
 | `moving_average_block_{{suffix}}(avg, data_in, data_out, length)` | `moving_average_{{suffix}}()` for each of `length` samples. `data_in` may be the same buffer as `data_out`. |

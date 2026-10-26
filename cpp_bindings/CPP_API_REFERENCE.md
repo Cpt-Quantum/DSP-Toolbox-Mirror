@@ -21,7 +21,7 @@ The FFT classes are only generated for `float` and `double`.
 * [FIR Filters (`fir`)](#fir-filters-fir)
 * [IIR Filters (Direct Form) (`iir_ba`)](#iir-filters-direct-form-iir_ba)
 * [IIR Filters (SOS/Biquad) (`iir_sos`)](#iir-filters-sosbiquad-iir_sos)
-* [Averaging (`average`, `power_average`, `moving_avg`)](#averaging-average-power_average-moving_avg)
+* [Averaging and Statistics (`average`, `power_average`, `rms`, `variance`, `moving_avg`, ...)](#averaging-and-statistics-average-power_average-rms-variance-moving_avg-)
 * [Complex Math (`complex_t`, `polar_t`, `complex_*`)](#complex-math-complex_t-polar_t-complex_)
 * [FFT (`fft`, `rfft`, `dft`)](#fft-fft-rfft-dft)
 * [JSON Parsing (`json_filter_parse`)](#json-parsing-json_filter_parse)
@@ -174,11 +174,11 @@ A wrapper for Second Order Sections (SOS) IIR filters, which are more numericall
 
 ---
 
-## Averaging (`average`, `power_average`, `moving_avg`)
+## Averaging and Statistics (`average`, `power_average`, `rms`, `variance`, `moving_avg`, ...)
 
 Header: `cpp_wrapper_average.h`
 
-Wrappers for the averaging functions in the [C API reference](../API_REFERENCE.md#averaging). The integer types sum in `int64_t` and round each average to the nearest value.
+Wrappers for the averaging and statistics functions in the [C API reference](../API_REFERENCE.md#averaging). The integer types sum in `int64_t` and round each result to the nearest value.
 
 ### Functions
 
@@ -186,6 +186,13 @@ Wrappers for the averaging functions in the [C API reference](../API_REFERENCE.m
 * `num_t average(const num_t *data_in, uint32_t length)`: Pointer overload of the above, for averaging part of a larger buffer without copying.
 * `power_type power_average(const std::vector<num_t> &data_in)`: Mean of the squares of the samples, 0 if there are none. `power_type` is `avg_traits<num_t>::power_type`: `int64_t` for `int32_t`, because the squares don't fit in `int32_t`, and `num_t` otherwise.
 * `power_type power_average(const num_t *data_in, uint32_t length)`: Pointer overload of the above.
+* `num_t rms(const std::vector<num_t> &data_in)`: Root mean square of the samples, 0 if there are none. Rounded to the nearest value for the integer types. For float and double, generating with `--no-stdlib` leaves it out (it needs the maths library), and using it is a compile error.
+* `power_type variance(const std::vector<num_t> &data_in)`: Population variance (as `numpy.var`), 0 if there are none. `int64_t` for `int32_t`, rounded to the nearest value for the integer types.
+* `num_t std_dev(const std::vector<num_t> &data_in)`: Population standard deviation, 0 if there are none. Rounded for the integer types, and left out like `rms` with `--no-stdlib`.
+* `num_t minimum(const std::vector<num_t> &data_in, uint32_t *index = nullptr)`, `num_t maximum(...)`: Smallest or largest sample, 0 if there are none. `index`, if given, is set to the index of the first occurrence. NaNs are skipped unless every sample is NaN.
+* `uint32_t zero_crossings(const std::vector<num_t> &data_in)`: Number of sign changes between consecutive samples, with 0 counted as positive.
+
+Each of these also has a pointer overload taking `(const num_t *data_in, uint32_t length)` before any other arguments, for part of a larger buffer without copying.
 
 ### Moving Average (`moving_avg`)
 

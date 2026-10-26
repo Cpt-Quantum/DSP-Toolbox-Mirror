@@ -24,10 +24,13 @@ CPP_WRAPPER_LIB = $(CPP_WRAPPER_ROOT_DIR)/build/libdsptoolbox.a
 # The same modules as a shared library
 CPP_WRAPPER_SHARED_LIB = $(CPP_WRAPPER_ROOT_DIR)/build/libdsptoolbox.so
 
-# Set needed linker flags
-CPP_WRAPPER_LDFLAGS += $(CPP_WRAPPER_LIB) -lm
+# Set needed linker flags. With make SANITIZE=1 they add the sanitizers, as
+# the library is built with them, and they also instrument any sources compiled
+# in the same command
+include $(CPP_WRAPPER_ROOT_DIR)/sanitize.mk
+CPP_WRAPPER_LDFLAGS += $(CPP_WRAPPER_LIB) -lm $(SANITIZE_FLAGS)
 CPP_WRAPPER_SHARED_LDFLAGS += $(CPP_WRAPPER_SHARED_LIB) -lm \
-	-Wl,-rpath,$(abspath $(CPP_WRAPPER_ROOT_DIR)/build)
+	-Wl,-rpath,$(abspath $(CPP_WRAPPER_ROOT_DIR)/build) $(SANITIZE_FLAGS)
 
 # Keep the including makefile's first target as its default goal, rather than
 # the rule below

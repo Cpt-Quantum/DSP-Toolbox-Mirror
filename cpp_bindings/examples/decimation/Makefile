@@ -9,7 +9,7 @@ INDEP_OUTPUT_BIN = "results/decimated_data_indep.bin"
 REGEN_INPUT_FILE ?= false
 
 # C parameters
-CC = g++
+CXX = g++
 CFLAGS = -Wall -O3
 DEFINES_LIST += F_S=$(SAMPLE_RATE)
 DEFINES_LIST += N_CHANNELS=$(N_CHANNELS)
@@ -33,7 +33,7 @@ PY_DATA_COMPARE_ARGS += --input $(INPUT_BIN) --output $(OUTPUT_BIN)
 LINKER_FLAGS += $(CPP_WRAPPER_LDFLAGS)
 
 decimation: $(CPP_WRAPPER_LIB)
-	$(CC) $(CFLAGS) decimation_test.cpp -o decimation_test $(LINKER_FLAGS)
+	$(CXX) $(CFLAGS) decimation_test.cpp -o decimation_test $(LINKER_FLAGS)
 
 run_all: decimation
 	./decimation_test

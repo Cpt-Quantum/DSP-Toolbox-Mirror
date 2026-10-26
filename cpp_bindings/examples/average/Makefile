@@ -1,5 +1,5 @@
 # C parameters
-CC = g++
+CXX = g++
 CFLAGS = -Wall -O3
 
 # Include the CPP wrapper makefile
@@ -10,7 +10,7 @@ include ../../cpp_wrapper.mk
 LINKER_FLAGS += $(CPP_WRAPPER_LDFLAGS)
 
 average: $(CPP_WRAPPER_LIB)
-	$(CC) $(CFLAGS) average_test.cpp -o average_test $(LINKER_FLAGS)
+	$(CXX) $(CFLAGS) average_test.cpp -o average_test $(LINKER_FLAGS)
 
 clean:
 	rm average_test

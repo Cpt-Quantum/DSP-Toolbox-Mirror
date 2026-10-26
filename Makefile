@@ -5,6 +5,9 @@
 # make generate        Only generates the C sources
 # make examples        Builds the C and C++ examples against the library
 # make clean           Removes the build directory
+# make SANITIZE=1 ...  Builds with the address and undefined behaviour
+#                      sanitizers (see sanitize.mk), e.g. make SANITIZE=1
+#                      examples
 #
 # Link the library with -lm, unless every module used avoids the maths library
 # (see the generation options). The variables below can be set on the command
@@ -24,6 +27,10 @@ CFLAGS ?= -Wall -O3
 PYTHON ?= python3
 BUILD_DIR ?= build
 
+include sanitize.mk
+override CFLAGS += $(SANITIZE_FLAGS)
+override LDFLAGS += $(SANITIZE_FLAGS)
+
 LIB = $(BUILD_DIR)/libdsptoolbox.a
 OBJ_DIR = $(BUILD_DIR)/obj
 # The shared library, built from position independent copies of the objects
@@ -37,6 +44,9 @@ MANIFEST = $(BUILD_DIR)/generated_sources.mk
 # regenerates the sources. The sources are generated in the source tree and
 # shared by every BUILD_DIR, so this is too
 GEN_ARGS_FILE = build/gen_args
+# The compiler and flags the objects were last built with, so changing them
+# (including SANITIZE) rebuilds the library
+CFLAGS_FILE = $(BUILD_DIR)/cflags
 
 # The examples built by make examples, with the target that builds each
 C_EXAMPLES = average fft filter nco waveform
@@ -66,6 +76,10 @@ $(GEN_ARGS_FILE): FORCE
 	@mkdir -p $(@D)
 	@echo '$(GEN_ARGS)' | cmp -s - $@ || echo '$(GEN_ARGS)' > $@
 
+$(CFLAGS_FILE): FORCE
+	@mkdir -p $(@D)
+	@echo '$(CC) $(CFLAGS)' | cmp -s - $@ || echo '$(CC) $(CFLAGS)' > $@
+
 $(MANIFEST): $(GENERATOR) $(TEMPLATES) $(GEN_ARGS_FILE)
 	$(PYTHON) $(GENERATOR) $(GEN_ARGS) --manifest $@
 
@@ -73,11 +87,11 @@ generate: $(MANIFEST)
 
 # The generator only rewrites sources that change, so the manifest is only
 # needed before compiling, and the header dependencies come from -MMD
-$(OBJ_DIR)/%.o: %.c | $(MANIFEST)
+$(OBJ_DIR)/%.o: %.c $(CFLAGS_FILE) | $(MANIFEST)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
-$(PIC_OBJ_DIR)/%.o: %.c | $(MANIFEST)
+$(PIC_OBJ_DIR)/%.o: %.c $(CFLAGS_FILE) | $(MANIFEST)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -fPIC -MMD -MP -c $< -o $@
 

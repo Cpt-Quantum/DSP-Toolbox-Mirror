@@ -283,6 +283,7 @@ def generate(
     fft: dict = None,
     wave: dict = None,
     nco: dict = None,
+    avg: dict = None,
 ) -> tuple:
     """Render the templates into output_dir for each type, returning the paths
     written and the number of templates that failed"""
@@ -299,6 +300,7 @@ def generate(
                 fft=(fft or {}).get(config["suffix"]),
                 wave=(wave or {}).get(config["suffix"]),
                 nco=(nco or {}).get(config["suffix"]),
+                avg=avg,
             )
             if ok:
                 written.append(os.path.join(output_dir, output_name))
@@ -308,11 +310,16 @@ def generate(
 
 
 def generate_cpp_traits(
-    output_dir: str, templates: list, fft: dict = None, wave: dict = None, nco: dict = None
+    output_dir: str,
+    templates: list,
+    fft: dict = None,
+    wave: dict = None,
+    nco: dict = None,
+    avg: dict = None,
 ) -> tuple:
     """Render the C++ traits templates into output_dir, each covering every
     type of its module, returning the paths written and the number of
-    templates that failed. The options are per type, keyed by suffix"""
+    templates that failed. fft, wave and nco are per type, keyed by suffix"""
     written = []
     failures = 0
     for template_name, output_name, types in templates:
@@ -324,6 +331,7 @@ def generate_cpp_traits(
             fft=fft or {},
             wave=wave or {},
             nco=nco or {},
+            avg=avg,
         ):
             written.append(output_path)
         else:
@@ -403,7 +411,8 @@ if __name__ == "__main__":
         "--no-stdlib",
         action="store_true",
         help="use plain copy loops instead of the C standard library, e.g. "
-        "for MCUs without one",
+        "for MCUs without one. Also leaves out the float and double rms_*() "
+        "and std_dev_*(), which need the maths library",
     )
     copy_group.add_argument(
         "--memcpy",
@@ -518,6 +527,9 @@ if __name__ == "__main__":
             parser.error(f"--nco-table-bits must be from {low} to {high}")
 
     copy = copy_options(args)
+    # The float and double RMS and standard deviation need sqrt from the
+    # maths library
+    avg = {"libm": not args.no_stdlib}
     print(
         "Filter copies: memcpy -> {}, memmove -> {}".format(
             copy["memcpy"] or "built in loop", copy["memmove"] or "built in loop"
@@ -540,7 +552,7 @@ if __name__ == "__main__":
     results = [
         generate("inc", inc_templates, wave=wave, nco=nco),
         generate("filter", filter_templates, copy),
-        generate("average", avg_templates),
+        generate("average", avg_templates, avg=avg),
     ]
     if args.fft_table_only:
         print(f"FFT twiddles: table up to {table_size} points only")
@@ -552,7 +564,7 @@ if __name__ == "__main__":
     results.append(generate("fft", fft_templates, types=FFT_TYPES, fft=fft))
     results.append(
         generate_cpp_traits(
-            "cpp_bindings", cpp_traits_templates, fft=fft, wave=wave, nco=nco
+            "cpp_bindings", cpp_traits_templates, fft=fft, wave=wave, nco=nco, avg=avg
         )
     )
 

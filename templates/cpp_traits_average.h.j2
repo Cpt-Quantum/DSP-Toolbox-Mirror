@@ -10,21 +10,46 @@
 #include <cstdint>
 
 /* Map the numerical type ({{ types | map(attribute="name") | join("/") }}) to struct and
- * function types for averaging */
+ * function types for averaging. root_stats is whether rms() and std_dev()
+ * exist, which for float and double need the maths library, so aren't
+ * generated with --no-stdlib */
 template <typename num_t> struct avg_traits;
 {% for type in types -%}
 template <> struct avg_traits<{{ type.name }}> {
 	using struct_type = moving_avg_{{ type.suffix }}_t;
 {%- if type.acc_type != type.name %}
-	/* The power is returned as {{ type.acc_type }}, as the squares don't fit */
+	/* The power and variance are returned as {{ type.acc_type }}, as the squares
+	 * don't fit */
 {%- endif %}
 	using power_type = {{ type.acc_type }};
+{%- set root_stats = type.fixed_point or avg.libm %}
+	static constexpr bool root_stats = {{ "true" if root_stats else "false" }};
 
 	static inline {{ type.name }} average(const {{ type.name }} *data_in, uint32_t len) {
 		return average_{{ type.suffix }}(data_in, len);
 	}
 	static inline power_type power_average(const {{ type.name }} *data_in, uint32_t len) {
 		return power_average_{{ type.suffix }}(data_in, len);
+	}
+{%- if root_stats %}
+	static inline {{ type.name }} rms(const {{ type.name }} *data_in, uint32_t len) {
+		return rms_{{ type.suffix }}(data_in, len);
+	}
+	static inline {{ type.name }} std_dev(const {{ type.name }} *data_in, uint32_t len) {
+		return std_dev_{{ type.suffix }}(data_in, len);
+	}
+{%- endif %}
+	static inline power_type variance(const {{ type.name }} *data_in, uint32_t len) {
+		return variance_{{ type.suffix }}(data_in, len);
+	}
+	static inline {{ type.name }} minimum(const {{ type.name }} *data_in, uint32_t len, uint32_t *index) {
+		return minimum_{{ type.suffix }}(data_in, len, index);
+	}
+	static inline {{ type.name }} maximum(const {{ type.name }} *data_in, uint32_t len, uint32_t *index) {
+		return maximum_{{ type.suffix }}(data_in, len, index);
+	}
+	static inline uint32_t zero_crossings(const {{ type.name }} *data_in, uint32_t len) {
+		return zero_crossings_{{ type.suffix }}(data_in, len);
 	}
 	static inline void init(struct_type *avg, {{ type.name }} *buff, uint32_t len) {
 		moving_avg_init_{{ type.suffix }}(avg, buff, len);

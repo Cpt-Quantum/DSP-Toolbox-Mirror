@@ -43,6 +43,7 @@ The build is set up with variables on the command line:
 | `JSON` | `1` | Set to `0` to leave out the JSON filter loading and cJSON, which need the C standard library |
 | `BUILD_DIR` | `build` | Where the objects and libraries go |
 | `LDFLAGS` | *(none)* | Extra flags for linking the shared library |
+| `SANITIZE` | `0` | Set to `1` to build the library and examples with the address and undefined behaviour sanitizers, see below |
 
 For example, for a Cortex-M4F without a C standard library, with a const FFT
 twiddle table and no maths library in the FFT:
@@ -55,7 +56,26 @@ make CC=arm-none-eabi-gcc AR=arm-none-eabi-ar \
 
 The generated sources are written into the source tree, next to the
 templates' other outputs, so they are shared by every `BUILD_DIR`. Changing
-`GEN_ARGS` regenerates them for all builds.
+`GEN_ARGS` regenerates them for all builds. Changing the compiler or
+`CFLAGS` rebuilds the library.
+
+To check for memory errors and undefined behaviour, build and run the examples
+with the sanitizers. The first error stops the program with a non-zero exit
+status:
+
+```shell
+make SANITIZE=1 examples
+```
+
+GCC needs its sanitizer runtimes installed (`libasan` and `libubsan` on
+Fedora). Clang has its own, and is used with `CC` and `CXX`, which the C and
+C++ examples use respectively:
+
+```shell
+make SANITIZE=1 CC=clang CXX=clang++ examples
+```
+
+Run a normal `make` afterwards to rebuild the library without them.
 
 # API documentation
 

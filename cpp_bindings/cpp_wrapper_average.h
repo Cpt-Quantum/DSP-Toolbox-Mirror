@@ -1,7 +1,8 @@
 #ifndef DSP_TOOLBOX_CPP_WRAPPER_AVERAGE_H
 #define DSP_TOOLBOX_CPP_WRAPPER_AVERAGE_H
 
-/* C++ wrapper for averaging (average, power_average, moving_avg) */
+/* C++ wrapper for averaging (average, power_average, moving_avg) and
+ * statistics (rms, variance, std_dev, minimum, maximum, zero_crossings) */
 
 #include "cpp_traits_average.h"
 
@@ -31,6 +32,74 @@ template <typename num_t>
 typename avg_traits<num_t>::power_type power_average(const num_t *data_in,
 													 uint32_t length) {
 	return avg_traits<num_t>::power_average(data_in, length);
+}
+
+/* Root mean square of the samples, 0 if there are none. The integer types
+ * are rounded to the nearest value. Not generated for float and double with
+ * --no-stdlib */
+template <typename num_t> num_t rms(const num_t *data_in, uint32_t length) {
+	static_assert(avg_traits<num_t>::root_stats,
+				  "rms needs the maths library, not generated with --no-stdlib");
+	return avg_traits<num_t>::rms(data_in, length);
+}
+template <typename num_t> num_t rms(const std::vector<num_t> &data_in) {
+	return rms(data_in.data(), (uint32_t)data_in.size());
+}
+/* Population variance of the samples (as numpy.var), 0 if there are none.
+ * int64_t for the integer types, rounded to the nearest value */
+template <typename num_t>
+typename avg_traits<num_t>::power_type variance(const num_t *data_in,
+												uint32_t length) {
+	return avg_traits<num_t>::variance(data_in, length);
+}
+template <typename num_t>
+typename avg_traits<num_t>::power_type
+variance(const std::vector<num_t> &data_in) {
+	return variance(data_in.data(), (uint32_t)data_in.size());
+}
+/* Population standard deviation of the samples, 0 if there are none. The
+ * integer types are rounded to the nearest value. Not generated for float and
+ * double with --no-stdlib */
+template <typename num_t>
+num_t std_dev(const num_t *data_in, uint32_t length) {
+	static_assert(avg_traits<num_t>::root_stats,
+				  "std_dev needs the maths library, not generated with "
+				  "--no-stdlib");
+	return avg_traits<num_t>::std_dev(data_in, length);
+}
+template <typename num_t> num_t std_dev(const std::vector<num_t> &data_in) {
+	return std_dev(data_in.data(), (uint32_t)data_in.size());
+}
+/* Smallest and largest of the samples, 0 if there are none. index, if not
+ * null, is set to the index of the first occurrence. NaNs are skipped,
+ * unless every sample is NaN */
+template <typename num_t>
+num_t minimum(const num_t *data_in, uint32_t length,
+			  uint32_t *index = nullptr) {
+	return avg_traits<num_t>::minimum(data_in, length, index);
+}
+template <typename num_t>
+num_t minimum(const std::vector<num_t> &data_in, uint32_t *index = nullptr) {
+	return minimum(data_in.data(), (uint32_t)data_in.size(), index);
+}
+template <typename num_t>
+num_t maximum(const num_t *data_in, uint32_t length,
+			  uint32_t *index = nullptr) {
+	return avg_traits<num_t>::maximum(data_in, length, index);
+}
+template <typename num_t>
+num_t maximum(const std::vector<num_t> &data_in, uint32_t *index = nullptr) {
+	return maximum(data_in.data(), (uint32_t)data_in.size(), index);
+}
+/* Number of sign changes between consecutive samples, with 0 counted as
+ * positive */
+template <typename num_t>
+uint32_t zero_crossings(const num_t *data_in, uint32_t length) {
+	return avg_traits<num_t>::zero_crossings(data_in, length);
+}
+template <typename num_t>
+uint32_t zero_crossings(const std::vector<num_t> &data_in) {
+	return zero_crossings(data_in.data(), (uint32_t)data_in.size());
 }
 
 /* Moving average wrapper class */

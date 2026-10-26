@@ -6,7 +6,7 @@ OUTPUT_BIN = "results/decimated_data.bin"
 REGEN_INPUT_FILE ?= false
 
 # C parameters
-CC = g++
+CXX = g++
 CFLAGS = -Wall -O3
 
 # Include the CPP wrapper makefile
@@ -17,7 +17,7 @@ include ../../cpp_wrapper.mk
 LINKER_FLAGS += $(CPP_WRAPPER_LDFLAGS)
 
 spectrum: $(CPP_WRAPPER_LIB)
-	$(CC) $(CFLAGS) spectrum_test.cpp -o spectrum_test $(LINKER_FLAGS)
+	$(CXX) $(CFLAGS) spectrum_test.cpp -o spectrum_test $(LINKER_FLAGS)
 
 clean:
 	rm spectrum_test

@@ -37,6 +37,38 @@ struct moving_avg_{{ type.suffix }}_t {
 {%- endif %} */
 {{ type.acc_type }} power_average_{{ type.suffix }}(const {{ type.name }} *data_in, uint32_t length);
 
+/* Statistics of length samples. The variance is the population variance
+ * (dividing by length, as numpy.var), from the deviations from the mean, so it
+ * doesn't lose precision to a large DC offset
+{%- if type.fixed_point %}. The variance is returned as
+ * {{ type.acc_type }}, as it doesn't fit in {{ type.name }}. Each result is the exact value rounded
+ * to the nearest integer (halves up), with the same limit on the sums as
+ * power_average_{{ type.suffix }}()
+{%- endif %}. All are 0 if length is 0 */
+{%- if not type.fixed_point and not avg.libm %}
+/* rms_{{ type.suffix }}() and std_dev_{{ type.suffix }}() need sqrt from the maths library, so
+ * aren't generated with --no-stdlib */
+{%- else %}
+{{ type.name }} rms_{{ type.suffix }}(const {{ type.name }} *data_in, uint32_t length);
+{%- endif %}
+{{ type.acc_type }} variance_{{ type.suffix }}(const {{ type.name }} *data_in, uint32_t length);
+{%- if type.fixed_point or avg.libm %}
+{{ type.name }} std_dev_{{ type.suffix }}(const {{ type.name }} *data_in, uint32_t length);
+{%- endif %}
+
+/* Smallest and largest of length samples, 0 if length is 0. index, if not
+ * NULL, is set to the index of the first occurrence (0 if length is 0)
+{%- if not type.fixed_point %}. NaNs
+ * are skipped, unless every sample is NaN
+{%- endif %} */
+{{ type.name }} minimum_{{ type.suffix }}(const {{ type.name }} *data_in, uint32_t length, uint32_t *index);
+{{ type.name }} maximum_{{ type.suffix }}(const {{ type.name }} *data_in, uint32_t length, uint32_t *index);
+
+/* Number of sign changes between consecutive samples, with 0 counted as
+ * positive. To count across blocks, start each block with the last sample of
+ * the previous one */
+uint32_t zero_crossings_{{ type.suffix }}(const {{ type.name }} *data_in, uint32_t length);
+
 /* Initialises avg with an empty window of length samples (at least 1) held in
  * buff */
 void moving_avg_init_{{ type.suffix }}(struct moving_avg_{{ type.suffix }}_t *avg, {{ type.name }} *buff, uint32_t length);

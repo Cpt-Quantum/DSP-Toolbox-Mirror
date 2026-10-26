@@ -1,6 +1,13 @@
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
+{%- if not type.fixed_point and avg.libm %}
+#include <math.h>
+{%- endif %}
 
 #include "avg_{{ type.suffix }}.h"
+{%- set T = type.name %}
+{%- set S = type.suffix %}
 
 /* Divides a sum by the number of samples summed
 {%- if type.fixed_point %}, rounding to the nearest value
@@ -45,6 +52,218 @@ static inline {{ type.name }} mean_{{ type.suffix }}({{ type.acc_type }} sum, ui
 {%- else %}
 	return sum / ({{ type.acc_type }})length;
 {%- endif %}
+}
+
+{%- if type.fixed_point %}
+
+/* Magnitude of v, which fits in uint64_t for every int64_t */
+static inline uint64_t magnitude_{{ S }}(int64_t v) {
+	return v < 0 ? (uint64_t)0 - (uint64_t)v : (uint64_t)v;
+}
+
+/* Floor of the square root of n, calculated bit by bit */
+static uint64_t sqrt_floor_{{ S }}(uint64_t n) {
+	uint64_t root = 0;
+	uint64_t bit = UINT64_C(1) << 62;
+	while (bit > n) {
+		bit >>= 2;
+	}
+	while (bit != 0) {
+		if (n >= root + bit) {
+			n -= root + bit;
+			root = (root >> 1) + bit;
+		} else {
+			root >>= 1;
+		}
+		bit >>= 2;
+	}
+	return root;
+}
+
+/* The statistics are v = s2 / n - s1_sq / n^2, the mean square for s1_sq = 0
+ * and the variance from the sums of the deviations s1 and their squares s2
+ * otherwise. Writing s2 / n as q + r / n, v = q + f with
+ * f = r / n - s1_sq / n^2. f is from 0 to 1 for the mean square, and from
+ * -1/4 to 1 for the variance, as |s1| <= n / 2 when the deviations are from
+ * the rounded mean. This is whether f >= num / den, for den up to 4, worked
+ * out exactly without overflow for n up to 2^32 */
+static bool frac_at_least_{{ S }}(uint64_t r, uint64_t s1_sq, uint32_t n, int64_t num, int64_t den) {
+	/* s1_sq = a * n + b, so f >= num / den when
+	 * den * (r - a) - num * n >= den * b / n, which is from 0 up to den */
+	const int64_t a = (int64_t)(s1_sq / n);
+	const int64_t b = (int64_t)(s1_sq % n);
+	const int64_t l = den * ((int64_t)r - a) - num * (int64_t)n;
+	if (l < 0) {
+		return false;
+	}
+	if (l >= den) {
+		return true;
+	}
+	return l * (int64_t)n >= den * b;
+}
+
+/* v rounded to the nearest integer, halves up */
+static uint64_t stat_rounded_{{ S }}(uint64_t s2, uint64_t s1_sq, uint32_t n) {
+	return s2 / n + (frac_at_least_{{ S }}(s2 % n, s1_sq, n, 1, 2) ? 1 : 0);
+}
+
+/* The square root of v rounded to the nearest integer, halves up */
+static uint64_t stat_root_rounded_{{ S }}(uint64_t s2, uint64_t s1_sq, uint32_t n) {
+	const uint64_t q = s2 / n;
+	const uint64_t r = s2 % n;
+	/* The floor of v is q, or q - 1 when f is negative */
+	const uint64_t v_floor = (q > 0 && !frac_at_least_{{ S }}(r, s1_sq, n, 0, 1)) ? q - 1 : q;
+	const uint64_t k = sqrt_floor_{{ S }}(v_floor);
+	/* The root rounds up when v >= (k + 1/2)^2 = k^2 + k + 1/4 */
+	const uint64_t edge = k * k + k;
+	if (q != edge) {
+		return q > edge ? k + 1 : k;
+	}
+	return k + (frac_at_least_{{ S }}(r, s1_sq, n, 1, 4) ? 1 : 0);
+}
+
+/* Converts a rounded root to {{ T }}
+{%- if type.limits %}, saturating it. A root can reach 2^31, one past
+ * {{ type.limits[1] }}, as the RMS of {{ type.limits[0] }} samples or the standard deviation of
+ * samples split between {{ type.limits[0] }} and {{ type.limits[1] }}
+{%- else %}. The limit on the sums keeps it in range
+{%- endif %} */
+static inline {{ T }} root_to_{{ S }}(uint64_t root) {
+{%- if type.limits %}
+	return root > (uint64_t){{ type.limits[1] }} ? {{ type.limits[1] }} : ({{ T }})root;
+{%- else %}
+	return ({{ T }})root;
+{%- endif %}
+}
+
+/* Sum of the squares of the samples, s2, for the mean square */
+static uint64_t sum_squares_{{ S }}(const {{ T }} *data_in, uint32_t length) {
+	uint64_t s2 = 0;
+	for (uint32_t i = 0; i < length; i++) {
+		const uint64_t x = magnitude_{{ S }}((int64_t)data_in[i]);
+		s2 += x * x;
+	}
+	return s2;
+}
+
+/* Sums of the deviations from the rounded mean, giving s2 and s1_sq for the
+ * variance */
+static void sum_deviations_{{ S }}(const {{ T }} *data_in, uint32_t length, uint64_t *s2, uint64_t *s1_sq) {
+	const int64_t mean = (int64_t)average_{{ S }}(data_in, length);
+	int64_t s1 = 0;
+	*s2 = 0;
+	for (uint32_t i = 0; i < length; i++) {
+		const int64_t d = (int64_t)data_in[i] - mean;
+		const uint64_t d_mag = magnitude_{{ S }}(d);
+		s1 += d;
+		*s2 += d_mag * d_mag;
+	}
+	*s1_sq = magnitude_{{ S }}(s1) * magnitude_{{ S }}(s1);
+}
+
+{{ T }} rms_{{ S }}(const {{ T }} *data_in, uint32_t length) {
+	if (length == 0) {
+		return 0;
+	}
+	return root_to_{{ S }}(stat_root_rounded_{{ S }}(sum_squares_{{ S }}(data_in, length), 0, length));
+}
+
+{{ type.acc_type }} variance_{{ S }}(const {{ T }} *data_in, uint32_t length) {
+	if (length == 0) {
+		return 0;
+	}
+	uint64_t s2, s1_sq;
+	sum_deviations_{{ S }}(data_in, length, &s2, &s1_sq);
+	return ({{ type.acc_type }})stat_rounded_{{ S }}(s2, s1_sq, length);
+}
+
+{{ T }} std_dev_{{ S }}(const {{ T }} *data_in, uint32_t length) {
+	if (length == 0) {
+		return 0;
+	}
+	uint64_t s2, s1_sq;
+	sum_deviations_{{ S }}(data_in, length, &s2, &s1_sq);
+	return root_to_{{ S }}(stat_root_rounded_{{ S }}(s2, s1_sq, length));
+}
+{%- else %}
+{%- if avg.libm %}
+
+{{ T }} rms_{{ S }}(const {{ T }} *data_in, uint32_t length) {
+	return sqrt{{ type.math_suffix }}(power_average_{{ S }}(data_in, length));
+}
+{%- endif %}
+
+{{ T }} variance_{{ S }}(const {{ T }} *data_in, uint32_t length) {
+	if (length == 0) {
+		return 0;
+	}
+	/* The deviations from the mean are summed as well as their squares, to
+	 * correct for the rounding of the mean */
+	const {{ T }} mean = average_{{ S }}(data_in, length);
+	{{ T }} s1 = 0;
+	{{ T }} s2 = 0;
+	for (uint32_t i = 0; i < length; i++) {
+		const {{ T }} d = data_in[i] - mean;
+		s1 += d;
+		s2 += d * d;
+	}
+	const {{ T }} variance = (s2 - s1 * s1 / ({{ T }})length) / ({{ T }})length;
+	/* Rounding can leave a tiny negative variance for constant samples. NaN
+	 * samples give NaN */
+	return variance < 0 ? 0 : variance;
+}
+{%- if avg.libm %}
+
+{{ T }} std_dev_{{ S }}(const {{ T }} *data_in, uint32_t length) {
+	return sqrt{{ type.math_suffix }}(variance_{{ S }}(data_in, length));
+}
+{%- endif %}
+{%- endif %}
+
+{{ T }} minimum_{{ S }}(const {{ T }} *data_in, uint32_t length, uint32_t *index) {
+	uint32_t best = 0;
+	for (uint32_t i = 1; i < length; i++) {
+{%- if type.fixed_point %}
+		if (data_in[i] < data_in[best]) {
+{%- else %}
+		/* A NaN at best is replaced by the first sample that isn't NaN */
+		if (data_in[i] < data_in[best] || (data_in[best] != data_in[best] && data_in[i] == data_in[i])) {
+{%- endif %}
+			best = i;
+		}
+	}
+	if (index != NULL) {
+		*index = best;
+	}
+	return length == 0 ? ({{ T }})0 : data_in[best];
+}
+
+{{ T }} maximum_{{ S }}(const {{ T }} *data_in, uint32_t length, uint32_t *index) {
+	uint32_t best = 0;
+	for (uint32_t i = 1; i < length; i++) {
+{%- if type.fixed_point %}
+		if (data_in[i] > data_in[best]) {
+{%- else %}
+		/* A NaN at best is replaced by the first sample that isn't NaN */
+		if (data_in[i] > data_in[best] || (data_in[best] != data_in[best] && data_in[i] == data_in[i])) {
+{%- endif %}
+			best = i;
+		}
+	}
+	if (index != NULL) {
+		*index = best;
+	}
+	return length == 0 ? ({{ T }})0 : data_in[best];
+}
+
+uint32_t zero_crossings_{{ S }}(const {{ T }} *data_in, uint32_t length) {
+	uint32_t count = 0;
+	for (uint32_t i = 1; i < length; i++) {
+		if ((data_in[i] < 0) != (data_in[i - 1] < 0)) {
+			count++;
+		}
+	}
+	return count;
 }
 
 void moving_avg_init_{{ type.suffix }}(struct moving_avg_{{ type.suffix }}_t *avg, {{ type.name }} *buff, uint32_t length) {

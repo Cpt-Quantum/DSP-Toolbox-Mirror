@@ -13,7 +13,7 @@ FILTER_JSON = "filters.json"
 REGEN_INPUT_FILE ?= false
 
 # C parameters
-CC = g++
+CXX = g++
 CFLAGS = -Wall -O3 -pthread
 DEFINES_LIST += F_S=$(SAMPLE_RATE)
 DEFINES_LIST += N_CHANNELS=$(N_CHANNELS)
@@ -40,7 +40,7 @@ PY_PLOT_ARGS += --fft $(FFT_OUTPUT_BIN) --fft-size $(FFT_SIZE)
 LINKER_FLAGS += $(CPP_WRAPPER_LDFLAGS)
 
 multithread: $(CPP_WRAPPER_LIB)
-	$(CC) $(CFLAGS) multithread_test.cpp -o multithread_test $(LINKER_FLAGS)
+	$(CXX) $(CFLAGS) multithread_test.cpp -o multithread_test $(LINKER_FLAGS)
 
 design:
 	$(PY) filter_design.py

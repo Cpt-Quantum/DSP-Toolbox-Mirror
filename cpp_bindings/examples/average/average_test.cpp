@@ -52,17 +52,17 @@ int main() {
 		ch_avg_int32[i].moving_average(ch_data_int32[i], smoothed_int32,
 									   DATA_LENGTH);
 
-		/* The block functions over the whole channel. The int32 power is
-		 * int64_t, as the squares don't fit in int32_t */
+		/* The block functions over the whole channel. The int32 RMS is
+		 * rounded to the nearest count */
 		const float block = average(ch_data[i].x);
 		const int32_t block_int32 = average(ch_data_int32[i]);
-		const float power = power_average(ch_data[i].x);
-		const int64_t power_int32 = power_average(ch_data_int32[i]);
+		const float block_rms = rms(ch_data[i].x);
+		const int32_t rms_int32 = rms(ch_data_int32[i]);
 
 		printf("%7d | %.5f  %.5f | %.5f  %.5f | %.5f  %.5f\n", i, block,
 			   (double)block_int32 / INT32_SCALE, smoothed[DATA_LENGTH - 1],
 			   (double)smoothed_int32[DATA_LENGTH - 1] / INT32_SCALE,
-			   sqrt(power), sqrt((double)power_int32) / INT32_SCALE);
+			   block_rms, (double)rms_int32 / INT32_SCALE);
 	}
 	return 0;
 }

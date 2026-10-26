@@ -4,7 +4,7 @@ INPUT_BIN = "results/input_data.bin"
 OUTPUT_BIN = "results/fft_data.bin"
 
 # C parameters
-CC = g++
+CXX = g++
 CFLAGS = -Wall -O3
 DEFINES_LIST += F_S=$(SAMPLE_RATE)
 CFLAGS += $(addprefix -D, $(DEFINES_LIST))
@@ -22,7 +22,7 @@ PY_PLOT_ARGS = --fs $(SAMPLE_RATE) --input $(INPUT_BIN) --output $(OUTPUT_BIN)
 LINKER_FLAGS += $(CPP_WRAPPER_LDFLAGS)
 
 fft: $(CPP_WRAPPER_LIB)
-	$(CC) $(CFLAGS) fft_test.cpp -o fft_test $(LINKER_FLAGS)
+	$(CXX) $(CFLAGS) fft_test.cpp -o fft_test $(LINKER_FLAGS)
 
 run_all: fft
 	./fft_test

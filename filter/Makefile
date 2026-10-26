@@ -10,6 +10,9 @@ CFLAGS = -Wall
 ROOT_DIR = ..
 LIB = $(ROOT_DIR)/build/libdsptoolbox.a
 LFLAGS = $(LIB) -lm
+# Built with the sanitizers for make SANITIZE=1, like the library
+include $(ROOT_DIR)/sanitize.mk
+LFLAGS += $(SANITIZE_FLAGS)
 
 C_FILES = main.c
 C_FILES += main_inc.c
